@@ -6,6 +6,7 @@ pub mod engine;
 pub mod error;
 pub mod layout;
 pub mod stats;
+pub mod term;
 pub mod ui;
 
 pub use error::{PolytypeError, Result};
