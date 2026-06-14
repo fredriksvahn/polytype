@@ -1,0 +1,5 @@
+name = "dvorak"
+display = "Dvorak"
+top = "' , . p y f g c r l"
+home = "a o e u i d h t n s"
+bottom = "; q j k x b m w v z"
