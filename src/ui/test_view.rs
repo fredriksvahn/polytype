@@ -10,7 +10,7 @@ use crate::ui::{heat, theme};
 use ratatui::layout::{Constraint, Direction, Layout as LLayout, Rect};
 use ratatui::style::{Modifier, Style, Stylize};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::Paragraph;
+use ratatui::widgets::{Paragraph, Wrap};
 use ratatui::Frame;
 
 pub struct TestView<'a> {
@@ -71,7 +71,10 @@ impl TestView<'_> {
                 Span::styled(c.to_string(), style)
             })
             .collect();
-        f.render_widget(Paragraph::new(Line::from(spans)), chunks[1]);
+        f.render_widget(
+            Paragraph::new(Line::from(spans)).wrap(Wrap { trim: false }),
+            chunks[1],
+        );
 
         // Keyboard
         if self.show_keyboard {
@@ -190,6 +193,36 @@ mod tests {
         assert!(
             cell.modifier.contains(ratatui::style::Modifier::UNDERLINED),
             "errored word underlined"
+        );
+    }
+
+    #[test]
+    fn long_text_wraps_instead_of_truncating() {
+        let reg = load_registry(None).unwrap();
+        let target = reg["qwerty"].clone();
+        let remapper = Remapper::new(reg["qwerty"].clone(), target.clone());
+        let text = "alpha bravo charlie delta"; // wider than a 12-col window
+        let runner = SessionRunner::new(text, remapper, Mode::Words(4));
+        let stats = KeyStats::default();
+
+        let mut term = Terminal::new(TestBackend::new(12, 8)).unwrap();
+        term.draw(|f| {
+            TestView {
+                runner: &runner,
+                target_text: text,
+                target_layout: &target,
+                stats: &stats,
+                show_keyboard: false,
+                show_heatmap: false,
+            }
+            .render(f, f.area());
+        })
+        .unwrap();
+
+        // Without wrapping, "delta" would be truncated off the first row.
+        assert!(
+            buffer_text(&term).contains("delta"),
+            "later word wrapped into view"
         );
     }
 
