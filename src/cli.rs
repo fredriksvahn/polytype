@@ -28,6 +28,9 @@ pub struct Args {
     /// Show the per-key accuracy heatmap.
     #[arg(long)]
     pub heatmap: bool,
+    /// Block until you type the correct letter (stop on error).
+    #[arg(long)]
+    pub strict: bool,
 }
 
 /// Which mode to launch directly (None => show the menu).
@@ -47,6 +50,7 @@ pub struct Settings {
     pub wordlist: String,
     pub show_keyboard: bool,
     pub show_heatmap: bool,
+    pub strict: bool,
     pub launch: LaunchMode,
 }
 
@@ -79,6 +83,7 @@ impl Settings {
                 config.show_keyboard
             },
             show_heatmap: args.heatmap || config.show_heatmap,
+            strict: args.strict || config.stop_on_error,
             launch,
         }
     }
@@ -96,6 +101,24 @@ mod tests {
         assert_eq!(s.launch, LaunchMode::Menu);
         assert!(s.show_keyboard);
         assert!(!s.show_heatmap);
+        assert!(!s.strict);
+    }
+
+    #[test]
+    fn strict_from_flag_or_config() {
+        let args = Args {
+            strict: true,
+            ..Args::default()
+        };
+        assert!(Settings::resolve(&args, &Config::default()).strict);
+
+        let cfg = Config {
+            stop_on_error: true,
+            ..Config::default()
+        };
+        assert!(Settings::resolve(&Args::default(), &cfg).strict);
+
+        assert!(!Settings::resolve(&Args::default(), &Config::default()).strict);
     }
 
     #[test]

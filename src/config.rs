@@ -16,6 +16,7 @@ pub struct Config {
     pub theme: String,
     pub show_keyboard: bool,
     pub show_heatmap: bool,
+    pub stop_on_error: bool,
 }
 
 impl Default for Config {
@@ -30,6 +31,7 @@ impl Default for Config {
             theme: "default".into(),
             show_keyboard: true,
             show_heatmap: false,
+            stop_on_error: false,
         }
     }
 }
@@ -89,6 +91,11 @@ mod tests {
         assert!(cfg.show_keyboard); // default kept
         std::fs::remove_file(&tmp).ok();
         let _ = &mut tmp;
+    }
+
+    #[test]
+    fn stop_on_error_defaults_false() {
+        assert!(!Config::default().stop_on_error);
     }
 
     fn tempfile_path(name: &str) -> std::path::PathBuf {
