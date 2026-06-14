@@ -7,6 +7,8 @@ pub enum Field {
     ModeKind,
     Layout,
     LessonLevel,
+    Punctuation,
+    Numbers,
     Start,
 }
 
@@ -22,6 +24,20 @@ pub enum ModeKind {
 pub struct StartRequest {
     pub mode: Mode,
     pub layout: String,
+    pub punctuation: bool,
+    pub numbers: bool,
+}
+
+impl StartRequest {
+    /// A request with symbols off (for simple/test construction).
+    pub fn new(mode: Mode, layout: String) -> Self {
+        StartRequest {
+            mode,
+            layout,
+            punctuation: false,
+            numbers: false,
+        }
+    }
 }
 
 pub struct MenuState {
@@ -33,6 +49,8 @@ pub struct MenuState {
     pub lesson_level: usize,
     pub layouts: Vec<String>,
     pub layout_idx: usize,
+    pub punctuation: bool,
+    pub numbers: bool,
 }
 
 impl MenuState {
@@ -46,6 +64,8 @@ impl MenuState {
                 Field::ModeKind,
                 Field::Layout,
                 Field::LessonLevel,
+                Field::Punctuation,
+                Field::Numbers,
                 Field::Start,
             ],
             cursor: 0,
@@ -55,6 +75,8 @@ impl MenuState {
             lesson_level: 1,
             layouts,
             layout_idx,
+            punctuation: false,
+            numbers: false,
         }
     }
 
@@ -91,6 +113,8 @@ impl MenuState {
                 let next = self.lesson_level as i32 + delta;
                 self.lesson_level = next.max(1) as usize;
             }
+            Field::Punctuation => self.punctuation = !self.punctuation,
+            Field::Numbers => self.numbers = !self.numbers,
             Field::Start => {}
         }
     }
@@ -105,6 +129,8 @@ impl MenuState {
         StartRequest {
             mode,
             layout: self.layouts[self.layout_idx].clone(),
+            punctuation: self.punctuation,
+            numbers: self.numbers,
         }
     }
 
@@ -192,9 +218,23 @@ mod tests {
     fn start_emits_request_only_on_start_field() {
         let mut m = menu();
         assert!(m.activate().is_none()); // on ModeKind
-        m.cursor = 3; // Start
+        m.cursor = 5; // Start
         let req = m.activate().unwrap();
         assert_eq!(req.mode, Mode::Words(50));
         assert_eq!(req.layout, "colemak-dhm");
+    }
+
+    #[test]
+    fn toggles_flip_and_flow_into_request() {
+        let mut m = menu();
+        m.cursor = 3; // Punctuation
+        m.adjust(1);
+        assert!(m.punctuation);
+        m.cursor = 4; // Numbers
+        m.adjust(1);
+        assert!(m.numbers);
+        m.cursor = 5; // Start
+        let req = m.activate().unwrap();
+        assert!(req.punctuation && req.numbers);
     }
 }
