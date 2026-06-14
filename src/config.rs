@@ -19,6 +19,8 @@ pub struct Config {
     pub show_keyboard: bool,
     pub show_heatmap: bool,
     pub stop_on_error: bool,
+    pub punctuation: bool,
+    pub numbers: bool,
     pub keys: HashMap<String, KeySpec>,
 }
 
@@ -35,6 +37,8 @@ impl Default for Config {
             show_keyboard: true,
             show_heatmap: false,
             stop_on_error: false,
+            punctuation: false,
+            numbers: false,
             keys: HashMap::new(),
         }
     }
@@ -100,6 +104,13 @@ mod tests {
     #[test]
     fn stop_on_error_defaults_false() {
         assert!(!Config::default().stop_on_error);
+    }
+
+    #[test]
+    fn symbols_default_false() {
+        let c = Config::default();
+        assert!(!c.punctuation);
+        assert!(!c.numbers);
     }
 
     #[test]

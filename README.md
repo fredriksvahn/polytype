@@ -15,10 +15,22 @@ by default. Train with free word/timed tests or a graded lesson progression.
     polytype --lesson 1                   # jump into lesson 1
     polytype --source colemak --layout graphite   # OS is Colemak, train Graphite
     polytype --strict --words 15          # stop on error: block until the letter is right
+    polytype --words 30 --punctuation     # sprinkle punctuation into the words
+    polytype --words 30 --numbers         # sprinkle numbers into the words
     cat text.txt | polytype --words 50    # use your own words
 
 `--no-keyboard` hides the on-screen keyboard; `--heatmap` colors keys by your
 accuracy.
+
+Words/timed tests can sprinkle punctuation and numbers: pass `--punctuation`
+and/or `--numbers`, toggle them in the menu, or set them in config:
+
+    punctuation = true
+    numbers = true
+
+Only punctuation that exists on the chosen layout's key grid is used (so it
+stays typeable through the remap); numbers pass through unchanged. Lessons are
+never decorated.
 
 In strict mode the cursor won't advance until you type the correct letter.
 Mistyped letters show red; words with an error are underlined; backspace corrects.

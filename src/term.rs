@@ -79,7 +79,17 @@ fn handle_test_key(
 ) {
     if app.keymap.matches(Action::TestRestart, &key) {
         if let (Some(layout), Some(mode)) = (app.current_layout.clone(), app.active_mode.clone()) {
-            app.start(StartRequest { mode, layout }, rng);
+            let punctuation = app.active_punctuation;
+            let numbers = app.active_numbers;
+            app.start(
+                StartRequest {
+                    mode,
+                    layout,
+                    punctuation,
+                    numbers,
+                },
+                rng,
+            );
             *started = Instant::now();
         }
         return;
@@ -115,7 +125,17 @@ fn handle_results_key(
 ) {
     if app.keymap.matches(Action::ResultsRestart, &key) {
         if let (Some(layout), Some(mode)) = (app.current_layout.clone(), app.active_mode.clone()) {
-            app.start(StartRequest { mode, layout }, rng);
+            let punctuation = app.active_punctuation;
+            let numbers = app.active_numbers;
+            app.start(
+                StartRequest {
+                    mode,
+                    layout,
+                    punctuation,
+                    numbers,
+                },
+                rng,
+            );
             *started = Instant::now();
         }
     } else if app.keymap.matches(Action::ResultsMenu, &key) {

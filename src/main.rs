@@ -62,5 +62,7 @@ fn menu_req(settings: &Settings, mode: polytype::app::Mode) -> polytype::app::me
     polytype::app::menu::StartRequest {
         mode,
         layout: settings.target_layout.clone(),
+        punctuation: settings.punctuation,
+        numbers: settings.numbers,
     }
 }

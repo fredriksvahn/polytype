@@ -20,6 +20,11 @@ pub fn render(f: &mut Frame, area: Rect, menu: &MenuState) {
             format!("Layout: {}", menu.layouts[menu.layout_idx]),
         ),
         (Field::LessonLevel, format!("Lesson: {}", menu.lesson_level)),
+        (
+            Field::Punctuation,
+            format!("Punct:  {}", on_off(menu.punctuation)),
+        ),
+        (Field::Numbers, format!("Nums:   {}", on_off(menu.numbers))),
         (Field::Start, "[ Start ]".to_string()),
     ];
     let lines: Vec<Line> = rows
@@ -36,6 +41,14 @@ pub fn render(f: &mut Frame, area: Rect, menu: &MenuState) {
         Paragraph::new(lines).block(Block::default().title("polytype").borders(Borders::ALL)),
         area,
     );
+}
+
+fn on_off(b: bool) -> &'static str {
+    if b {
+        "on"
+    } else {
+        "off"
+    }
 }
 
 #[cfg(test)]

@@ -87,10 +87,7 @@ mod tests {
         );
         let mut rng = rand::thread_rng();
         app.start(
-            crate::app::menu::StartRequest {
-                mode: crate::app::Mode::Words(3),
-                layout: "qwerty".into(),
-            },
+            crate::app::menu::StartRequest::new(crate::app::Mode::Words(3), "qwerty".into()),
             &mut rng,
         );
         app.open_panel();

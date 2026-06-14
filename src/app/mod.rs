@@ -22,7 +22,7 @@ pub enum Screen {
 use crate::app::menu::{MenuState, StartRequest};
 use crate::app::runner::SessionRunner;
 use crate::cli::Settings;
-use crate::content::{generate_words, lessons};
+use crate::content::{decorate, generate_word_list, lessons};
 use crate::engine::Score;
 use crate::keys::Keymap;
 use crate::layout::remap::Remapper;
@@ -41,6 +41,8 @@ pub struct App {
     pub target_text: Option<String>,
     pub current_layout: Option<String>,
     pub active_mode: Option<Mode>,
+    pub active_punctuation: bool,
+    pub active_numbers: bool,
     pub last_score: Option<Score>,
     pub session_stats: KeyStats,
     pub should_quit: bool,
@@ -62,7 +64,9 @@ impl App {
             v.sort();
             v
         };
-        let menu = MenuState::new(layouts, &settings.target_layout);
+        let mut menu = MenuState::new(layouts, &settings.target_layout);
+        menu.punctuation = settings.punctuation;
+        menu.numbers = settings.numbers;
         App {
             settings,
             registry,
@@ -73,6 +77,8 @@ impl App {
             target_text: None,
             current_layout: None,
             active_mode: None,
+            active_punctuation: false,
+            active_numbers: false,
             last_score: None,
             session_stats: KeyStats::default(),
             should_quit: false,
@@ -100,9 +106,21 @@ impl App {
             .cloned()
             .unwrap_or_else(|| layout.clone());
 
+        self.active_mode = Some(req.mode.clone());
+        self.active_punctuation = req.punctuation;
+        self.active_numbers = req.numbers;
+
         let text = match &req.mode {
-            Mode::Words(n) => generate_words(&self.word_pool, *n, rng),
-            Mode::Timed(_) => generate_words(&self.word_pool, 200, rng),
+            Mode::Words(n) => {
+                let mut words = generate_word_list(&self.word_pool, *n, rng);
+                decorate::apply(&mut words, &layout, req.punctuation, req.numbers, rng);
+                words.join(" ")
+            }
+            Mode::Timed(_) => {
+                let mut words = generate_word_list(&self.word_pool, 200, rng);
+                decorate::apply(&mut words, &layout, req.punctuation, req.numbers, rng);
+                words.join(" ")
+            }
             Mode::Lesson(level) => {
                 let prog = lessons::progression(&layout);
                 let lesson = prog
@@ -114,7 +132,6 @@ impl App {
         };
 
         let remapper = Remapper::new(source, layout);
-        self.active_mode = Some(req.mode.clone());
         let mut runner = SessionRunner::new(&text, remapper, req.mode);
         runner.set_strict(self.settings.strict);
         self.runner = Some(runner);
@@ -151,6 +168,8 @@ impl App {
         if let Some(mode) = &self.active_mode {
             menu.seed_mode(mode);
         }
+        menu.punctuation = self.active_punctuation;
+        menu.numbers = self.active_numbers;
         self.overlay = Some(menu);
     }
 
@@ -194,10 +213,7 @@ mod tests {
         let mut a = app();
         let mut rng = rand::thread_rng();
         a.start(
-            StartRequest {
-                mode: Mode::Words(5),
-                layout: "colemak-dhm".into(),
-            },
+            StartRequest::new(Mode::Words(5), "colemak-dhm".into()),
             &mut rng,
         );
         a.open_panel();
@@ -209,13 +225,7 @@ mod tests {
     fn confirm_panel_starts_and_closes() {
         let mut a = app();
         let mut rng = rand::thread_rng();
-        a.start(
-            StartRequest {
-                mode: Mode::Words(5),
-                layout: "qwerty".into(),
-            },
-            &mut rng,
-        );
+        a.start(StartRequest::new(Mode::Words(5), "qwerty".into()), &mut rng);
         a.open_panel();
         a.confirm_panel(&mut rng);
         assert!(a.overlay.is_none());
@@ -227,15 +237,26 @@ mod tests {
     fn cancel_panel_closes_only() {
         let mut a = app();
         let mut rng = rand::thread_rng();
-        a.start(
-            StartRequest {
-                mode: Mode::Words(5),
-                layout: "qwerty".into(),
-            },
-            &mut rng,
-        );
+        a.start(StartRequest::new(Mode::Words(5), "qwerty".into()), &mut rng);
         a.open_panel();
         a.cancel_panel();
         assert!(a.overlay.is_none());
+    }
+
+    #[test]
+    fn start_with_punctuation_only_typeable_chars() {
+        let mut a = app();
+        let mut rng = rand::thread_rng();
+        let mut req = StartRequest::new(Mode::Words(60), "colemak-dhm".into());
+        req.punctuation = true;
+        a.start(req, &mut rng);
+        let layout = a.target_layout().unwrap().clone();
+        let text = a.target_text.clone().unwrap();
+        for c in text.chars().filter(|c| !c.is_alphabetic() && *c != ' ') {
+            assert!(
+                layout.position_of(c).is_some(),
+                "char {c:?} typeable on layout"
+            );
+        }
     }
 }

@@ -31,6 +31,12 @@ pub struct Args {
     /// Block until you type the correct letter (stop on error).
     #[arg(long)]
     pub strict: bool,
+    /// Sprinkle punctuation into words/timed tests.
+    #[arg(long)]
+    pub punctuation: bool,
+    /// Sprinkle numbers into words/timed tests.
+    #[arg(long)]
+    pub numbers: bool,
 }
 
 /// Which mode to launch directly (None => show the menu).
@@ -51,6 +57,8 @@ pub struct Settings {
     pub show_keyboard: bool,
     pub show_heatmap: bool,
     pub strict: bool,
+    pub punctuation: bool,
+    pub numbers: bool,
     pub launch: LaunchMode,
 }
 
@@ -84,6 +92,8 @@ impl Settings {
             },
             show_heatmap: args.heatmap || config.show_heatmap,
             strict: args.strict || config.stop_on_error,
+            punctuation: args.punctuation || config.punctuation,
+            numbers: args.numbers || config.numbers,
             launch,
         }
     }
@@ -119,6 +129,20 @@ mod tests {
         assert!(Settings::resolve(&Args::default(), &cfg).strict);
 
         assert!(!Settings::resolve(&Args::default(), &Config::default()).strict);
+    }
+
+    #[test]
+    fn symbols_from_flag_or_config() {
+        let args = Args {
+            punctuation: true,
+            ..Args::default()
+        };
+        assert!(Settings::resolve(&args, &Config::default()).punctuation);
+        let cfg = Config {
+            numbers: true,
+            ..Config::default()
+        };
+        assert!(Settings::resolve(&Args::default(), &cfg).numbers);
     }
 
     #[test]
