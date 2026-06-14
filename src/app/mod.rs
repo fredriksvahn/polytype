@@ -109,7 +109,9 @@ impl App {
 
         let remapper = Remapper::new(source, layout);
         self.active_mode = Some(req.mode.clone());
-        self.runner = Some(SessionRunner::new(&text, remapper, req.mode));
+        let mut runner = SessionRunner::new(&text, remapper, req.mode);
+        runner.set_strict(self.settings.strict);
+        self.runner = Some(runner);
         self.target_text = Some(text);
         self.current_layout = Some(req.layout);
         self.session_stats = KeyStats::default();
