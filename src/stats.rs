@@ -32,9 +32,7 @@ mod char_key_map {
         stringified.serialize(serializer)
     }
 
-    pub fn deserialize<'de, D>(
-        deserializer: D,
-    ) -> Result<HashMap<char, (usize, usize)>, D::Error>
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<HashMap<char, (usize, usize)>, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -87,7 +85,11 @@ impl KeyStats {
     pub fn accuracy(&self, key: char) -> Option<f64> {
         self.keys.get(&key).map(|(h, m)| {
             let total = h + m;
-            if total == 0 { 1.0 } else { *h as f64 / total as f64 }
+            if total == 0 {
+                1.0
+            } else {
+                *h as f64 / total as f64
+            }
         })
     }
 }

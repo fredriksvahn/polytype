@@ -17,10 +17,8 @@ pub struct Lesson {
 /// then top row (0..10), then bottom row (20..30).
 const INTRO_ORDER: &[usize] = &[
     // home row: left index/middle (13,12), right index/middle (16,17),
-    13, 16, 12, 17, 11, 18, 10, 19, 14, 15,
-    // top row
-    3, 6, 2, 7, 1, 8, 0, 9, 4, 5,
-    // bottom row
+    13, 16, 12, 17, 11, 18, 10, 19, 14, 15, // top row
+    3, 6, 2, 7, 1, 8, 0, 9, 4, 5, // bottom row
     23, 26, 22, 27, 21, 28, 20, 29, 24, 25,
 ];
 
@@ -79,7 +77,9 @@ pub fn drill_text<R: Rng>(
         (0..word_count)
             .map(|_| {
                 let len = rng.gen_range(3..=5);
-                (0..len).map(|_| *keys.choose(rng).unwrap()).collect::<String>()
+                (0..len)
+                    .map(|_| *keys.choose(rng).unwrap())
+                    .collect::<String>()
             })
             .collect::<Vec<_>>()
             .join(" ")

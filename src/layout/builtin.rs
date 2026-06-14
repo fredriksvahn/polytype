@@ -8,11 +8,20 @@ use std::path::Path;
 const BUILTINS: &[(&str, &str)] = &[
     ("qwerty", include_str!("../../assets/layouts/qwerty.toml")),
     ("colemak", include_str!("../../assets/layouts/colemak.toml")),
-    ("colemak-dh", include_str!("../../assets/layouts/colemak-dh.toml")),
-    ("colemak-dhm", include_str!("../../assets/layouts/colemak-dhm.toml")),
+    (
+        "colemak-dh",
+        include_str!("../../assets/layouts/colemak-dh.toml"),
+    ),
+    (
+        "colemak-dhm",
+        include_str!("../../assets/layouts/colemak-dhm.toml"),
+    ),
     ("dvorak", include_str!("../../assets/layouts/dvorak.toml")),
     ("workman", include_str!("../../assets/layouts/workman.toml")),
-    ("graphite", include_str!("../../assets/layouts/graphite.toml")),
+    (
+        "graphite",
+        include_str!("../../assets/layouts/graphite.toml"),
+    ),
 ];
 
 /// All built-in layouts keyed by name.

@@ -29,7 +29,11 @@ pub struct LayoutFile {
 impl Layout {
     pub fn from_file(f: LayoutFile) -> Result<Layout> {
         let keys = parse_rows(&f.name, &[&f.top, &f.home, &f.bottom])?;
-        Ok(Layout { name: f.name, display: f.display, keys })
+        Ok(Layout {
+            name: f.name,
+            display: f.display,
+            keys,
+        })
     }
 
     pub fn position_of(&self, ch: char) -> Option<usize> {

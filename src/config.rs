@@ -1,7 +1,7 @@
 //! User configuration loaded from `~/.config/polytype/config.toml`.
 
-use serde::{Deserialize, Serialize};
 use crate::error::Result;
+use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -86,7 +86,7 @@ mod tests {
         assert_eq!(cfg.target_layout, "dvorak"); // overridden
         assert_eq!(cfg.words, 25); // overridden
         assert_eq!(cfg.source_layout, "qwerty"); // default kept
-        assert_eq!(cfg.show_keyboard, true); // default kept
+        assert!(cfg.show_keyboard); // default kept
         std::fs::remove_file(&tmp).ok();
         let _ = &mut tmp;
     }

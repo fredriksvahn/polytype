@@ -78,7 +78,12 @@ impl TestSession {
         } else {
             self.correct as f64 / self.typed as f64
         };
-        Score { wpm, accuracy, correct: self.correct, typed: self.typed }
+        Score {
+            wpm,
+            accuracy,
+            correct: self.correct,
+            typed: self.typed,
+        }
     }
 }
 
