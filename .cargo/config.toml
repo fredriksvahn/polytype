@@ -1,0 +1,8 @@
+# Convenience aliases — invoke as `cargo <alias>`.
+# A cargo alias maps to a single cargo subcommand; chaining (fmt && clippy &&
+# test) is not possible here — use a shell function for an all-in-one check.
+[alias]
+t = "test"
+r = "run"
+lint = "clippy --all-targets"
+fmtcheck = "fmt --check"
