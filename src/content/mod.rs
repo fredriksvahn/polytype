@@ -1,21 +1,25 @@
 //! Content generation: pick random words from a pool.
 
+pub mod decorate;
 pub mod lessons;
 pub mod wordlist;
 
 use rand::seq::SliceRandom;
 use rand::Rng;
 
-/// Produce `count` words chosen at random (with repetition) from `pool`,
-/// joined by single spaces. Empty pool yields an empty string.
-pub fn generate_words<R: Rng>(pool: &[String], count: usize, rng: &mut R) -> String {
+/// Produce `count` words chosen at random (with repetition) from `pool`.
+pub fn generate_word_list<R: Rng>(pool: &[String], count: usize, rng: &mut R) -> Vec<String> {
     if pool.is_empty() {
-        return String::new();
+        return Vec::new();
     }
     (0..count)
-        .map(|_| pool.choose(rng).unwrap().as_str())
-        .collect::<Vec<_>>()
-        .join(" ")
+        .map(|_| pool.choose(rng).unwrap().clone())
+        .collect()
+}
+
+/// Same as `generate_word_list`, joined by single spaces.
+pub fn generate_words<R: Rng>(pool: &[String], count: usize, rng: &mut R) -> String {
+    generate_word_list(pool, count, rng).join(" ")
 }
 
 /// Read words from process stdin. Returns an error if stdin is not piped.
