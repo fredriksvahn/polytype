@@ -2,12 +2,13 @@
 //! coloring, and (optionally) the on-screen keyboard.
 
 use crate::app::runner::SessionRunner;
+use crate::engine::Cell;
 use crate::layout::Layout;
 use crate::stats::KeyStats;
 use crate::ui::keyboard::{hand_of, highlight_pos};
 use crate::ui::{heat, theme};
 use ratatui::layout::{Constraint, Direction, Layout as LLayout, Rect};
-use ratatui::style::{Style, Stylize};
+use ratatui::style::{Modifier, Style, Stylize};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
 use ratatui::Frame;
@@ -45,21 +46,29 @@ impl TestView<'_> {
             chunks[0],
         );
 
-        // Target text with per-char coloring
+        // Target text colored by per-position outcome.
         let cursor = self.runner.cursor();
-        let spans: Vec<Span> = self
-            .target_text
-            .chars()
+        let cells = self.runner.cells();
+        let chars: Vec<char> = self.target_text.chars().collect();
+        let word_err = word_has_error(&chars, cells);
+
+        let spans: Vec<Span> = chars
+            .iter()
             .enumerate()
-            .map(|(i, c)| {
-                let s = c.to_string();
-                if i < cursor {
-                    Span::styled(s, Style::new().fg(theme::DONE))
-                } else if i == cursor {
-                    Span::styled(s, Style::new().fg(theme::CURSOR_FG).bg(theme::CURSOR_BG))
+            .map(|(i, &c)| {
+                let mut style = if i == cursor {
+                    Style::new().fg(theme::CURSOR_FG).bg(theme::CURSOR_BG)
                 } else {
-                    Span::styled(s, Style::new().fg(theme::TODO))
+                    match cells.get(i) {
+                        Some(Cell::Correct) => Style::new().fg(theme::CORRECT),
+                        Some(Cell::Wrong) => Style::new().fg(theme::WRONG),
+                        _ => Style::new().fg(theme::TODO),
+                    }
+                };
+                if word_err.get(i).copied().unwrap_or(false) {
+                    style = style.add_modifier(Modifier::UNDERLINED);
                 }
+                Span::styled(c.to_string(), style)
             })
             .collect();
         f.render_widget(Paragraph::new(Line::from(spans)), chunks[1]);
@@ -96,6 +105,25 @@ impl TestView<'_> {
     }
 }
 
+/// For each char index, true if its word (run between spaces) contains a Wrong cell.
+fn word_has_error(chars: &[char], cells: &[Cell]) -> Vec<bool> {
+    let mut flags = vec![false; chars.len()];
+    let mut start = 0;
+    for i in 0..=chars.len() {
+        let boundary = i == chars.len() || chars[i] == ' ';
+        if boundary {
+            let has_err = (start..i).any(|j| cells.get(j) == Some(&Cell::Wrong));
+            if has_err {
+                for flag in flags.iter_mut().take(i).skip(start) {
+                    *flag = true;
+                }
+            }
+            start = i + 1;
+        }
+    }
+    flags
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -130,6 +158,39 @@ mod tests {
         let content = buffer_text(&term);
         assert!(content.contains("the"), "target text rendered");
         assert!(content.contains("colemak-dhm"), "status shows layout");
+    }
+
+    #[test]
+    fn wrong_char_is_red_and_word_underlined() {
+        let reg = load_registry(None).unwrap();
+        let target = reg["qwerty"].clone();
+        let remapper = Remapper::new(reg["qwerty"].clone(), target.clone());
+        let mut runner = SessionRunner::new("ab cd", remapper, Mode::Words(2));
+        runner.type_char('x'); // wrong for 'a' (free mode advances)
+        let stats = KeyStats::default();
+
+        let mut term = Terminal::new(TestBackend::new(40, 8)).unwrap();
+        term.draw(|f| {
+            TestView {
+                runner: &runner,
+                target_text: "ab cd",
+                target_layout: &target,
+                stats: &stats,
+                show_keyboard: false,
+                show_heatmap: false,
+            }
+            .render(f, f.area());
+        })
+        .unwrap();
+
+        // Find the cell for 'a' (index 0) in the text row (row 1).
+        let buf = term.backend().buffer();
+        let cell = buf.cell((0, 1)).expect("cell at (0,1)");
+        assert_eq!(cell.fg, theme::WRONG, "wrong char rendered red");
+        assert!(
+            cell.modifier.contains(ratatui::style::Modifier::UNDERLINED),
+            "errored word underlined"
+        );
     }
 
     fn buffer_text(term: &Terminal<TestBackend>) -> String {
