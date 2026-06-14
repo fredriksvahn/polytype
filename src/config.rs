@@ -1,7 +1,9 @@
 //! User configuration loaded from `~/.config/polytype/config.toml`.
 
 use crate::error::Result;
+use crate::keys::KeySpec;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -17,6 +19,7 @@ pub struct Config {
     pub show_keyboard: bool,
     pub show_heatmap: bool,
     pub stop_on_error: bool,
+    pub keys: HashMap<String, KeySpec>,
 }
 
 impl Default for Config {
@@ -32,6 +35,7 @@ impl Default for Config {
             show_keyboard: true,
             show_heatmap: false,
             stop_on_error: false,
+            keys: HashMap::new(),
         }
     }
 }
@@ -96,6 +100,25 @@ mod tests {
     #[test]
     fn stop_on_error_defaults_false() {
         assert!(!Config::default().stop_on_error);
+    }
+
+    #[test]
+    fn keys_table_parses() {
+        let p = std::env::temp_dir().join("polytype-test-keys.toml");
+        std::fs::write(
+            &p,
+            "[keys]\ntest_restart = \"esc\"\nnav_down = [\"down\", \"j\"]\n",
+        )
+        .unwrap();
+        let cfg = Config::load_from(&p).unwrap();
+        assert!(cfg.keys.contains_key("test_restart"));
+        assert!(cfg.keys.contains_key("nav_down"));
+        std::fs::remove_file(&p).ok();
+    }
+
+    #[test]
+    fn keys_default_empty() {
+        assert!(Config::default().keys.is_empty());
     }
 
     fn tempfile_path(name: &str) -> std::path::PathBuf {
