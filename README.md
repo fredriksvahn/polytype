@@ -14,11 +14,15 @@ by default. Train with free word/timed tests or a graded lesson progression.
     polytype --layout graphite --time 30  # 30s timed test, train Graphite
     polytype --lesson 1                   # jump into lesson 1
     polytype --source colemak --layout graphite   # OS is Colemak, train Graphite
+    polytype --strict --words 15          # stop on error: block until the letter is right
     cat text.txt | polytype --words 50    # use your own words
 
 Keys: arrows to navigate the menu, Enter to start, type to take the test,
 `tab` next test, `esc` back to menu, `ctrl-c` quit. `--no-keyboard` hides the
 on-screen keyboard; `--heatmap` colors keys by your accuracy.
+
+In strict mode the cursor won't advance until you type the correct letter.
+Mistyped letters show red; words with an error are underlined; backspace corrects.
 
 ## Layouts
 
