@@ -24,6 +24,7 @@ use crate::app::runner::SessionRunner;
 use crate::cli::Settings;
 use crate::content::{generate_words, lessons};
 use crate::engine::Score;
+use crate::keys::Keymap;
 use crate::layout::remap::Remapper;
 use crate::layout::Layout;
 use crate::stats::KeyStats;
@@ -44,6 +45,8 @@ pub struct App {
     pub session_stats: KeyStats,
     pub should_quit: bool,
     pub word_pool: Vec<String>,
+    pub keymap: Keymap,
+    pub overlay: Option<MenuState>,
 }
 
 impl App {
@@ -52,6 +55,7 @@ impl App {
         registry: HashMap<String, Layout>,
         stats: KeyStats,
         pool: Vec<String>,
+        keymap: Keymap,
     ) -> Self {
         let layouts: Vec<String> = {
             let mut v: Vec<String> = registry.keys().cloned().collect();
@@ -73,6 +77,8 @@ impl App {
             session_stats: KeyStats::default(),
             should_quit: false,
             word_pool: pool,
+            keymap,
+            overlay: None,
         }
     }
 
@@ -128,5 +134,108 @@ impl App {
             self.session_stats = sess;
         }
         self.screen = Screen::Results;
+    }
+
+    /// Open the quick-panel, seeded with the current layout + mode.
+    pub fn open_panel(&mut self) {
+        let layouts: Vec<String> = {
+            let mut v: Vec<String> = self.registry.keys().cloned().collect();
+            v.sort();
+            v
+        };
+        let layout = self
+            .current_layout
+            .clone()
+            .unwrap_or_else(|| self.settings.target_layout.clone());
+        let mut menu = MenuState::new(layouts, &layout);
+        if let Some(mode) = &self.active_mode {
+            menu.seed_mode(mode);
+        }
+        self.overlay = Some(menu);
+    }
+
+    /// Apply the panel selection: start a new test, close the panel.
+    pub fn confirm_panel(&mut self, rng: &mut ThreadRng) {
+        if let Some(req) = self.overlay.as_ref().map(|m| m.request()) {
+            self.start(req, rng);
+        }
+        self.overlay = None;
+    }
+
+    /// Close the panel without changing anything.
+    pub fn cancel_panel(&mut self) {
+        self.overlay = None;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::keys::Keymap;
+    use crate::layout::builtin::load_registry;
+
+    fn app() -> App {
+        let registry = load_registry(None).unwrap();
+        let settings = crate::cli::Settings::resolve(
+            &crate::cli::Args::default(),
+            &crate::config::Config::default(),
+        );
+        App::new(
+            settings,
+            registry,
+            KeyStats::default(),
+            vec!["the".into(), "fox".into()],
+            Keymap::defaults(),
+        )
+    }
+
+    #[test]
+    fn open_panel_seeds_overlay() {
+        let mut a = app();
+        let mut rng = rand::thread_rng();
+        a.start(
+            StartRequest {
+                mode: Mode::Words(5),
+                layout: "colemak-dhm".into(),
+            },
+            &mut rng,
+        );
+        a.open_panel();
+        let ov = a.overlay.as_ref().unwrap();
+        assert_eq!(ov.layouts[ov.layout_idx], "colemak-dhm");
+    }
+
+    #[test]
+    fn confirm_panel_starts_and_closes() {
+        let mut a = app();
+        let mut rng = rand::thread_rng();
+        a.start(
+            StartRequest {
+                mode: Mode::Words(5),
+                layout: "qwerty".into(),
+            },
+            &mut rng,
+        );
+        a.open_panel();
+        a.confirm_panel(&mut rng);
+        assert!(a.overlay.is_none());
+        assert_eq!(a.screen, Screen::Test);
+        assert!(a.target_text.is_some());
+    }
+
+    #[test]
+    fn cancel_panel_closes_only() {
+        let mut a = app();
+        let mut rng = rand::thread_rng();
+        a.start(
+            StartRequest {
+                mode: Mode::Words(5),
+                layout: "qwerty".into(),
+            },
+            &mut rng,
+        );
+        a.open_panel();
+        a.cancel_panel();
+        assert!(a.overlay.is_none());
     }
 }
