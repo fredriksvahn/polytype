@@ -17,12 +17,31 @@ by default. Train with free word/timed tests or a graded lesson progression.
     polytype --strict --words 15          # stop on error: block until the letter is right
     cat text.txt | polytype --words 50    # use your own words
 
-Keys: arrows to navigate the menu, Enter to start, type to take the test,
-`tab` next test, `esc` back to menu, `ctrl-c` quit. `--no-keyboard` hides the
-on-screen keyboard; `--heatmap` colors keys by your accuracy.
+`--no-keyboard` hides the on-screen keyboard; `--heatmap` colors keys by your
+accuracy.
 
 In strict mode the cursor won't advance until you type the correct letter.
 Mistyped letters show red; words with an error are underlined; backspace corrects.
+
+## Keybindings
+
+Menu: arrows or `hjkl` to navigate, Enter to start, Ctrl+C to quit.
+Test: type to take the test, `Esc` = restart with new words, `Tab` = open the
+quick-panel (switch layout/mode), Backspace to correct, Ctrl+C to quit.
+Quick-panel: navigate like the menu, Enter applies (new test), `Esc` resumes.
+Results: `Tab`/Enter = new test, `Esc` = menu.
+
+Remap any of these in `~/.config/polytype/config.toml`:
+
+    [keys]
+    test_restart = "esc"
+    test_panel = "tab"
+    nav_down = ["down", "j"]
+
+Action names: nav_up, nav_down, nav_prev, nav_next, confirm, quit, test_restart,
+test_panel, results_restart, results_menu, panel_cancel. Key strings: named keys
+(esc, tab, enter, space, backspace, up/down/left/right), single chars (j, q), and
+modifiers (ctrl-, alt-, shift-), e.g. "ctrl-r".
 
 ## Layouts
 

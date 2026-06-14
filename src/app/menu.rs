@@ -95,20 +95,43 @@ impl MenuState {
         }
     }
 
-    /// Activate the focused field. Returns a StartRequest only on Start.
-    pub fn activate(&self) -> Option<StartRequest> {
-        if self.focused() != Field::Start {
-            return None;
-        }
+    /// Build a StartRequest from the current selection (any field).
+    pub fn request(&self) -> StartRequest {
         let mode = match self.mode_kind {
             ModeKind::Words => Mode::Words(self.words),
             ModeKind::Timed => Mode::Timed(self.time),
             ModeKind::Lesson => Mode::Lesson(self.lesson_level),
         };
-        Some(StartRequest {
+        StartRequest {
             mode,
             layout: self.layouts[self.layout_idx].clone(),
-        })
+        }
+    }
+
+    /// Activate the focused field. Returns a StartRequest only on Start.
+    pub fn activate(&self) -> Option<StartRequest> {
+        if self.focused() != Field::Start {
+            return None;
+        }
+        Some(self.request())
+    }
+
+    /// Preselect the mode kind + value (used when seeding the quick-panel).
+    pub fn seed_mode(&mut self, mode: &Mode) {
+        match mode {
+            Mode::Words(n) => {
+                self.mode_kind = ModeKind::Words;
+                self.words = *n;
+            }
+            Mode::Timed(s) => {
+                self.mode_kind = ModeKind::Timed;
+                self.time = *s;
+            }
+            Mode::Lesson(l) => {
+                self.mode_kind = ModeKind::Lesson;
+                self.lesson_level = *l;
+            }
+        }
     }
 }
 
@@ -147,6 +170,22 @@ mod tests {
         let before = m.layout_idx;
         m.adjust(1);
         assert_ne!(m.layout_idx, before);
+    }
+
+    #[test]
+    fn request_builds_from_selection_any_field() {
+        let mut m = menu();
+        m.adjust(1); // Words -> Timed (on ModeKind field)
+        let req = m.request(); // not on Start, still works
+        assert_eq!(req.mode, Mode::Timed(30));
+    }
+
+    #[test]
+    fn seed_mode_sets_kind_and_value() {
+        let mut m = menu();
+        m.seed_mode(&Mode::Lesson(4));
+        assert_eq!(m.mode_kind, ModeKind::Lesson);
+        assert_eq!(m.lesson_level, 4);
     }
 
     #[test]

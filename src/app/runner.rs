@@ -35,6 +35,10 @@ impl SessionRunner {
         self.elapsed_secs = secs;
     }
 
+    pub fn elapsed(&self) -> f64 {
+        self.elapsed_secs
+    }
+
     pub fn is_finished(&self) -> bool {
         match self.mode {
             Mode::Timed(limit) => self.session.is_finished() || self.elapsed_secs >= limit as f64,
@@ -115,6 +119,13 @@ mod tests {
         assert_eq!(r.cursor(), 0);
         r.type_char('a');
         assert_eq!(r.cursor(), 1);
+    }
+
+    #[test]
+    fn elapsed_reflects_set_value() {
+        let mut r = SessionRunner::new("hi", remapper("qwerty", "qwerty"), Mode::Words(1));
+        r.set_elapsed(12.5);
+        assert!((r.elapsed() - 12.5).abs() < 1e-9);
     }
 
     #[test]

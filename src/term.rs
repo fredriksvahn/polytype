@@ -1,11 +1,12 @@
 //! Terminal setup/teardown and the crossterm event loop.
 
-use crate::app::menu;
+use crate::app::menu::StartRequest;
 use crate::app::{App, Screen};
+use crate::keys::Action;
 use crate::ui::render;
-use ratatui::crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
+use ratatui::crossterm::event::{self, Event, KeyEvent};
 use std::io;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 pub fn run(app: &mut App) -> io::Result<()> {
     let mut terminal = ratatui::init();
@@ -13,8 +14,8 @@ pub fn run(app: &mut App) -> io::Result<()> {
     let mut started = Instant::now();
 
     while !app.should_quit {
-        // Keep elapsed fresh for timed mode + live wpm.
-        if app.screen == Screen::Test {
+        // Advance the clock only while actually typing (not while the panel is open).
+        if app.screen == Screen::Test && app.overlay.is_none() {
             if let Some(runner) = &mut app.runner {
                 runner.set_elapsed(started.elapsed().as_secs_f64());
                 if runner.is_finished() {
@@ -25,17 +26,20 @@ pub fn run(app: &mut App) -> io::Result<()> {
 
         terminal.draw(|f| render::render(f, app))?;
 
-        // Poll so timed tests advance even without keypresses.
-        if event::poll(std::time::Duration::from_millis(100))? {
+        if event::poll(Duration::from_millis(100))? {
             if let Event::Key(key) = event::read()? {
-                if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c') {
+                if app.keymap.matches(Action::Quit, &key) {
                     app.should_quit = true;
                     continue;
                 }
-                match app.screen {
-                    Screen::Menu => handle_menu_key(app, key, &mut started, &mut rng),
-                    Screen::Test => handle_test_key(app, key),
-                    Screen::Results => handle_results_key(app, key, &mut started, &mut rng),
+                if app.overlay.is_some() {
+                    handle_overlay_key(app, key, &mut started, &mut rng);
+                } else {
+                    match app.screen {
+                        Screen::Menu => handle_menu_key(app, key, &mut started, &mut rng),
+                        Screen::Test => handle_test_key(app, key, &mut started, &mut rng),
+                        Screen::Results => handle_results_key(app, key, &mut started, &mut rng),
+                    }
                 }
             }
         }
@@ -51,25 +55,41 @@ fn handle_menu_key(
     started: &mut Instant,
     rng: &mut rand::rngs::ThreadRng,
 ) {
-    match key.code {
-        KeyCode::Up => app.menu.move_up(),
-        KeyCode::Down => app.menu.move_down(),
-        KeyCode::Left => app.menu.adjust(-1),
-        KeyCode::Right => app.menu.adjust(1),
-        KeyCode::Enter => {
-            if let Some(req) = app.menu.activate() {
-                app.start(req, rng);
-                *started = Instant::now();
-            }
+    if app.keymap.matches(Action::NavUp, &key) {
+        app.menu.move_up();
+    } else if app.keymap.matches(Action::NavDown, &key) {
+        app.menu.move_down();
+    } else if app.keymap.matches(Action::NavPrev, &key) {
+        app.menu.adjust(-1);
+    } else if app.keymap.matches(Action::NavNext, &key) {
+        app.menu.adjust(1);
+    } else if app.keymap.matches(Action::Confirm, &key) {
+        if let Some(req) = app.menu.activate() {
+            app.start(req, rng);
+            *started = Instant::now();
         }
-        KeyCode::Esc => app.should_quit = true,
-        _ => {}
     }
 }
 
-fn handle_test_key(app: &mut App, key: KeyEvent) {
+fn handle_test_key(
+    app: &mut App,
+    key: KeyEvent,
+    started: &mut Instant,
+    rng: &mut rand::rngs::ThreadRng,
+) {
+    if app.keymap.matches(Action::TestRestart, &key) {
+        if let (Some(layout), Some(mode)) = (app.current_layout.clone(), app.active_mode.clone()) {
+            app.start(StartRequest { mode, layout }, rng);
+            *started = Instant::now();
+        }
+        return;
+    }
+    if app.keymap.matches(Action::TestPanel, &key) {
+        app.open_panel(); // clock freezes (overlay open)
+        return;
+    }
+    use ratatui::crossterm::event::KeyCode;
     match key.code {
-        KeyCode::Esc => app.screen = Screen::Menu,
         KeyCode::Backspace => {
             if let Some(runner) = &mut app.runner {
                 runner.backspace();
@@ -93,18 +113,45 @@ fn handle_results_key(
     started: &mut Instant,
     rng: &mut rand::rngs::ThreadRng,
 ) {
-    match key.code {
-        KeyCode::Esc => app.screen = Screen::Menu,
-        KeyCode::Tab => {
-            // Restart the same mode/layout.
-            if let (Some(layout), Some(mode)) =
-                (app.current_layout.clone(), app.active_mode.clone())
-            {
-                let req = menu::StartRequest { mode, layout };
-                app.start(req, rng);
-                *started = Instant::now();
-            }
+    if app.keymap.matches(Action::ResultsRestart, &key) {
+        if let (Some(layout), Some(mode)) = (app.current_layout.clone(), app.active_mode.clone()) {
+            app.start(StartRequest { mode, layout }, rng);
+            *started = Instant::now();
         }
-        _ => {}
+    } else if app.keymap.matches(Action::ResultsMenu, &key) {
+        app.screen = Screen::Menu;
+    }
+}
+
+fn handle_overlay_key(
+    app: &mut App,
+    key: KeyEvent,
+    started: &mut Instant,
+    rng: &mut rand::rngs::ThreadRng,
+) {
+    if app.keymap.matches(Action::NavUp, &key) {
+        if let Some(m) = &mut app.overlay {
+            m.move_up();
+        }
+    } else if app.keymap.matches(Action::NavDown, &key) {
+        if let Some(m) = &mut app.overlay {
+            m.move_down();
+        }
+    } else if app.keymap.matches(Action::NavPrev, &key) {
+        if let Some(m) = &mut app.overlay {
+            m.adjust(-1);
+        }
+    } else if app.keymap.matches(Action::NavNext, &key) {
+        if let Some(m) = &mut app.overlay {
+            m.adjust(1);
+        }
+    } else if app.keymap.matches(Action::Confirm, &key) {
+        app.confirm_panel(rng);
+        *started = Instant::now();
+    } else if app.keymap.matches(Action::PanelCancel, &key) {
+        // Resume: shift the clock so elapsed continues from where it froze.
+        let elapsed = app.runner.as_ref().map(|r| r.elapsed()).unwrap_or(0.0);
+        *started = Instant::now() - Duration::from_secs_f64(elapsed);
+        app.cancel_panel();
     }
 }

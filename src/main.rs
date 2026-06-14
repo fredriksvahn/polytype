@@ -30,7 +30,8 @@ fn main() -> std::io::Result<()> {
         }
     };
 
-    let mut app = App::new(settings.clone(), registry, stats, pool);
+    let keymap = polytype::keys::Keymap::with_overrides(&config.keys);
+    let mut app = App::new(settings.clone(), registry, stats, pool, keymap);
 
     // CLI launch shortcuts skip the menu.
     let mut rng = rand::thread_rng();
