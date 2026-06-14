@@ -4,10 +4,10 @@ use crate::ui::heat::Heat;
 use crate::ui::keyboard::Hand;
 use ratatui::style::Color;
 
-pub const DONE: Color = Color::DarkGray;
 pub const CURSOR_BG: Color = Color::Yellow;
 pub const CURSOR_FG: Color = Color::Black;
 pub const TODO: Color = Color::Gray;
+pub const CORRECT: Color = Color::White;
 pub const WRONG: Color = Color::Red;
 pub const STATUS: Color = Color::Cyan;
 

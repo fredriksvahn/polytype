@@ -42,6 +42,18 @@ impl SessionRunner {
         }
     }
 
+    pub fn set_strict(&mut self, strict: bool) {
+        self.session.set_strict(strict);
+    }
+
+    pub fn backspace(&mut self) {
+        self.session.backspace();
+    }
+
+    pub fn cells(&self) -> &[crate::engine::Cell] {
+        self.session.cells()
+    }
+
     pub fn cursor(&self) -> usize {
         self.session.cursor()
     }
@@ -93,5 +105,24 @@ mod tests {
         r.type_char('h');
         r.type_char('i');
         assert!(r.is_finished());
+    }
+
+    #[test]
+    fn strict_runner_blocks_on_wrong() {
+        let mut r = SessionRunner::new("ab", remapper("qwerty", "qwerty"), Mode::Words(1));
+        r.set_strict(true);
+        r.type_char('x'); // wrong for 'a'
+        assert_eq!(r.cursor(), 0);
+        r.type_char('a');
+        assert_eq!(r.cursor(), 1);
+    }
+
+    #[test]
+    fn runner_backspace_reverts() {
+        let mut r = SessionRunner::new("ab", remapper("qwerty", "qwerty"), Mode::Words(1));
+        r.type_char('a');
+        assert_eq!(r.cursor(), 1);
+        r.backspace();
+        assert_eq!(r.cursor(), 0);
     }
 }

@@ -70,6 +70,11 @@ fn handle_menu_key(
 fn handle_test_key(app: &mut App, key: KeyEvent) {
     match key.code {
         KeyCode::Esc => app.screen = Screen::Menu,
+        KeyCode::Backspace => {
+            if let Some(runner) = &mut app.runner {
+                runner.backspace();
+            }
+        }
         KeyCode::Char(c) => {
             if let Some(runner) = &mut app.runner {
                 runner.type_char(c);
