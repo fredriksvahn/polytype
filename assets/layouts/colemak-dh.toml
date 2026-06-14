@@ -1,0 +1,5 @@
+name = "colemak-dh"
+display = "Colemak-DH"
+top = "q w f p b j l u y ;"
+home = "a r s t g m n e i o"
+bottom = "z x c d v k h , . /"

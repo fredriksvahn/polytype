@@ -1,5 +1,8 @@
 //! Layout type: a positional char table aligned to the QWERTY 30-key grid.
 
+pub mod builtin;
+pub mod remap;
+
 use crate::error::{PolytypeError, Result};
 use serde::Deserialize;
 
