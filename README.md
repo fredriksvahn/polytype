@@ -61,6 +61,8 @@ Mistyped letters show red; words with an error are underlined; backspace correct
 Pick **Stats** in the menu (or the Tab quick-panel) to see your best and average
 WPM, a sparkline of your recent runs, and your weakest fingers for the current
 layout. Each finished test is logged to `~/.local/share/polytype/history.csv`.
+The Stats screen also shows a per-key **heatmap** of the target layout (green =
+accurate, red = weak, dim = untyped) with a legend.
 
 ## Keybindings
 

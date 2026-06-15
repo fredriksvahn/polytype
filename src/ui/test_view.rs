@@ -5,11 +5,9 @@ use crate::app::runner::SessionRunner;
 use crate::engine::Cell;
 use crate::layout::Layout;
 use crate::stats::KeyStats;
-use crate::ui::heat;
-use crate::ui::keyboard::{hand_of, highlight_pos};
 use crate::ui::theme::Theme;
 use ratatui::layout::{Constraint, Direction, Layout as LLayout, Rect};
-use ratatui::style::{Modifier, Style, Stylize};
+use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
 use ratatui::Frame;
@@ -119,42 +117,25 @@ impl TestView<'_> {
         // Keyboard
         if self.show_keyboard {
             let next = self.target_text.chars().nth(cursor);
-            let hl = highlight_pos(self.target_layout, next);
-            let kb = self.keyboard_lines(hl);
+            let hl = crate::ui::keyboard::highlight_pos(self.target_layout, next);
+            let coloring = if self.show_heatmap {
+                crate::ui::keyboard::KeyColoring::Heat
+            } else {
+                crate::ui::keyboard::KeyColoring::Hands
+            };
+            let kb = crate::ui::keyboard::keyboard_lines(
+                self.target_layout,
+                self.theme,
+                self.stats,
+                coloring,
+                self.split_keyboard,
+                hl,
+            );
             f.render_widget(
                 Paragraph::new(kb).alignment(ratatui::layout::Alignment::Center),
                 rows[4],
             );
         }
-    }
-
-    fn keyboard_lines(&self, highlight: Option<usize>) -> Vec<Line<'static>> {
-        let mut lines = Vec::new();
-        for row in 0..3 {
-            let mut spans = Vec::new();
-            for col in 0..10 {
-                // Visible gap between the two hands for split keyboards.
-                if self.split_keyboard && col == 5 {
-                    spans.push(Span::raw("     "));
-                }
-                let pos = row * 10 + col;
-                let ch = self.target_layout.char_at(pos).unwrap_or(' ');
-                let mut style = if self.show_heatmap {
-                    Style::new().fg(self.theme.heat_color(heat::heat_for(self.stats, ch)))
-                } else {
-                    Style::new().fg(self.theme.hand_color(hand_of(pos)))
-                };
-                if Some(pos) == highlight {
-                    style = style
-                        .bg(self.theme.cursor_bg)
-                        .fg(self.theme.cursor_fg)
-                        .bold();
-                }
-                spans.push(Span::styled(format!(" {ch}"), style));
-            }
-            lines.push(Line::from(spans));
-        }
-        lines
     }
 }
 
@@ -343,32 +324,6 @@ mod tests {
         assert!(
             buffer_text(&term).contains("delta"),
             "later word wrapped into view"
-        );
-    }
-
-    #[test]
-    fn split_keyboard_widens_rows() {
-        let reg = load_registry(None).unwrap();
-        let target = reg["qwerty"].clone();
-        let remapper = Remapper::new(reg["qwerty"].clone(), target.clone());
-        let runner = SessionRunner::new("x", remapper, Mode::Words(1));
-        let stats = KeyStats::default();
-        let theme = Theme::default();
-        let view = |split| TestView {
-            runner: &runner,
-            target_text: "x",
-            target_layout: &target,
-            stats: &stats,
-            show_keyboard: true,
-            show_heatmap: false,
-            split_keyboard: split,
-            theme: &theme,
-        };
-        let normal = view(false).keyboard_lines(None);
-        let split = view(true).keyboard_lines(None);
-        assert!(
-            split[0].width() > normal[0].width(),
-            "split inserts a gap between the hands"
         );
     }
 

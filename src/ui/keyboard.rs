@@ -3,6 +3,49 @@
 
 use crate::layout::Layout;
 use crate::stats::KeyStats;
+use crate::ui::{heat, theme::Theme};
+use ratatui::style::{Style, Stylize};
+use ratatui::text::{Line, Span};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum KeyColoring {
+    Hands,
+    Heat,
+}
+
+/// Render the on-screen keyboard for `layout` as 3 lines of styled spans.
+/// `coloring` picks hand colors vs accuracy heat; `split` inserts a gap between
+/// the hands; `highlight` reverse-highlights one grid position.
+pub fn keyboard_lines(
+    layout: &Layout,
+    theme: &Theme,
+    stats: &KeyStats,
+    coloring: KeyColoring,
+    split: bool,
+    highlight: Option<usize>,
+) -> Vec<Line<'static>> {
+    let mut lines = Vec::new();
+    for row in 0..3 {
+        let mut spans = Vec::new();
+        for col in 0..10 {
+            if split && col == 5 {
+                spans.push(Span::raw("     "));
+            }
+            let pos = row * 10 + col;
+            let ch = layout.char_at(pos).unwrap_or(' ');
+            let mut style = match coloring {
+                KeyColoring::Heat => Style::new().fg(theme.heat_color(heat::heat_for(stats, ch))),
+                KeyColoring::Hands => Style::new().fg(theme.hand_color(hand_of(pos))),
+            };
+            if Some(pos) == highlight {
+                style = style.bg(theme.cursor_bg).fg(theme.cursor_fg).bold();
+            }
+            spans.push(Span::styled(format!(" {ch}"), style));
+        }
+        lines.push(Line::from(spans));
+    }
+    lines
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Hand {
@@ -152,5 +195,23 @@ mod tests {
         assert!(!pf.is_empty());
         assert!(pf[0].1 <= pf[pf.len() - 1].1, "sorted weakest first");
         assert!(pf.iter().any(|(f, _)| *f == Finger::LPinky));
+    }
+
+    #[test]
+    fn keyboard_lines_split_widens_and_coloring_differs() {
+        use crate::stats::KeyStats;
+        use crate::ui::theme::Theme;
+        let layout = dhm();
+        let theme = Theme::default();
+        let stats = KeyStats::default();
+        let normal = keyboard_lines(&layout, &theme, &stats, KeyColoring::Hands, false, None);
+        let split = keyboard_lines(&layout, &theme, &stats, KeyColoring::Hands, true, None);
+        assert!(split[0].width() > normal[0].width(), "split adds a gap");
+        // With empty stats, Heat colors untyped keys (unknown) — differs from hand color.
+        let heat = keyboard_lines(&layout, &theme, &stats, KeyColoring::Heat, false, None);
+        assert_ne!(
+            heat[0].spans[0].style.fg, normal[0].spans[0].style.fg,
+            "heat vs hands color differs"
+        );
     }
 }

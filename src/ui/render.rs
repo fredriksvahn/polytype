@@ -42,7 +42,14 @@ pub fn render(f: &mut Frame, app: &App) {
                 .target_layout()
                 .or_else(|| app.registry.get(&app.settings.target_layout));
             if let Some(layout) = layout {
-                crate::ui::stats_view::render(f, area, layout, &app.stats, &app.theme);
+                crate::ui::stats_view::render(
+                    f,
+                    area,
+                    layout,
+                    &app.stats,
+                    &app.theme,
+                    app.settings.split_keyboard,
+                );
             }
         }
     }

@@ -3,15 +3,22 @@
 use crate::history;
 use crate::layout::Layout;
 use crate::stats::KeyStats;
-use crate::ui::keyboard::per_finger_accuracy;
+use crate::ui::keyboard::{keyboard_lines, per_finger_accuracy, KeyColoring};
 use crate::ui::theme::Theme;
 use ratatui::layout::{Alignment, Constraint, Direction, Layout as LLayout, Rect};
 use ratatui::style::Style;
-use ratatui::text::Line;
+use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
 use ratatui::Frame;
 
-pub fn render(f: &mut Frame, area: Rect, layout: &Layout, stats: &KeyStats, theme: &Theme) {
+pub fn render(
+    f: &mut Frame,
+    area: Rect,
+    layout: &Layout,
+    stats: &KeyStats,
+    theme: &Theme,
+    split_keyboard: bool,
+) {
     let sessions = history::load();
     let weak = per_finger_accuracy(layout, stats);
     let weak_str = if weak.is_empty() {
@@ -36,16 +43,34 @@ pub fn render(f: &mut Frame, area: Rect, layout: &Layout, stats: &KeyStats, them
     };
     let spark = history::sparkline(&history::recent_wpm(&sessions, 30));
 
-    let lines = vec![
+    let kb = keyboard_lines(
+        layout,
+        theme,
+        stats,
+        KeyColoring::Heat,
+        split_keyboard,
+        None,
+    );
+    let legend = Line::from(vec![
+        Span::styled("\u{25a0} good  ", Style::new().fg(theme.heat_good)),
+        Span::styled("\u{25a0} ok  ", Style::new().fg(theme.heat_mid)),
+        Span::styled("\u{25a0} weak  ", Style::new().fg(theme.heat_bad)),
+        Span::styled("\u{25a0} untyped", Style::new().fg(theme.heat_unknown)),
+    ]);
+
+    let mut lines = vec![
         Line::from("stats").style(Style::new().fg(theme.accent)),
         Line::from(""),
         Line::from(summary).style(Style::new().fg(theme.fg)),
         Line::from(format!("wpm  {spark}")).style(Style::new().fg(theme.fg)),
         Line::from(""),
-        Line::from(format!("weak fingers:  {weak_str}")).style(Style::new().fg(theme.dim)),
-        Line::from(""),
-        Line::from("any key = back").style(Style::new().fg(theme.dim)),
     ];
+    lines.extend(kb);
+    lines.push(legend);
+    lines.push(Line::from(""));
+    lines.push(Line::from(format!("weak fingers:  {weak_str}")).style(Style::new().fg(theme.dim)));
+    lines.push(Line::from(""));
+    lines.push(Line::from("any key = back").style(Style::new().fg(theme.dim)));
     let content_h = lines.len() as u16;
     let outer = LLayout::default()
         .direction(Direction::Vertical)
@@ -72,7 +97,7 @@ mod tests {
         stats.keys.insert('a', (6, 4));
         let theme = Theme::default();
         let mut term = Terminal::new(TestBackend::new(50, 16)).unwrap();
-        term.draw(|f| render(f, f.area(), &layout, &stats, &theme))
+        term.draw(|f| render(f, f.area(), &layout, &stats, &theme, false))
             .unwrap();
         let content: String = term
             .backend()
@@ -83,5 +108,6 @@ mod tests {
             .collect();
         assert!(content.contains("stats"));
         assert!(content.contains("weak fingers"));
+        assert!(content.contains("good")); // legend present
     }
 }
