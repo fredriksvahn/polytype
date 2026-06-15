@@ -56,6 +56,12 @@ overrides the wordlist.
 In strict mode the cursor won't advance until you type the correct letter.
 Mistyped letters show red; words with an error are underlined; backspace corrects.
 
+## Stats
+
+Pick **Stats** in the menu (or the Tab quick-panel) to see your best and average
+WPM, a sparkline of your recent runs, and your weakest fingers for the current
+layout. Each finished test is logged to `~/.local/share/polytype/history.csv`.
+
 ## Keybindings
 
 Menu: arrows or `hjkl` to navigate, Enter to start, Ctrl+C to quit.
