@@ -26,6 +26,7 @@ pub fn render(f: &mut Frame, app: &App) {
                     stats: &app.stats,
                     show_keyboard: app.settings.show_keyboard,
                     show_heatmap: app.settings.show_heatmap,
+                    split_keyboard: app.settings.split_keyboard,
                 }
                 .render(f, area);
             }

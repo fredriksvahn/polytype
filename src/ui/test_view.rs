@@ -20,6 +20,7 @@ pub struct TestView<'a> {
     pub stats: &'a KeyStats,
     pub show_keyboard: bool,
     pub show_heatmap: bool,
+    pub split_keyboard: bool,
 }
 
 impl TestView<'_> {
@@ -129,6 +130,10 @@ impl TestView<'_> {
         for row in 0..3 {
             let mut spans = Vec::new();
             for col in 0..10 {
+                // Visible gap between the two hands for split keyboards.
+                if self.split_keyboard && col == 5 {
+                    spans.push(Span::raw("     "));
+                }
                 let pos = row * 10 + col;
                 let ch = self.target_layout.char_at(pos).unwrap_or(' ');
                 let mut style = if self.show_heatmap {
@@ -244,6 +249,7 @@ mod tests {
                 stats: &stats,
                 show_keyboard: true,
                 show_heatmap: false,
+                split_keyboard: false,
             }
             .render(f, f.area());
         })
@@ -272,6 +278,7 @@ mod tests {
                 stats: &stats,
                 show_keyboard: false,
                 show_heatmap: false,
+                split_keyboard: false,
             }
             .render(f, f.area());
         })
@@ -314,6 +321,7 @@ mod tests {
                 stats: &stats,
                 show_keyboard: false,
                 show_heatmap: false,
+                split_keyboard: false,
             }
             .render(f, f.area());
         })
@@ -323,6 +331,30 @@ mod tests {
         assert!(
             buffer_text(&term).contains("delta"),
             "later word wrapped into view"
+        );
+    }
+
+    #[test]
+    fn split_keyboard_widens_rows() {
+        let reg = load_registry(None).unwrap();
+        let target = reg["qwerty"].clone();
+        let remapper = Remapper::new(reg["qwerty"].clone(), target.clone());
+        let runner = SessionRunner::new("x", remapper, Mode::Words(1));
+        let stats = KeyStats::default();
+        let view = |split| TestView {
+            runner: &runner,
+            target_text: "x",
+            target_layout: &target,
+            stats: &stats,
+            show_keyboard: true,
+            show_heatmap: false,
+            split_keyboard: split,
+        };
+        let normal = view(false).keyboard_lines(None);
+        let split = view(true).keyboard_lines(None);
+        assert!(
+            split[0].width() > normal[0].width(),
+            "split inserts a gap between the hands"
         );
     }
 
@@ -348,6 +380,7 @@ mod tests {
                 stats: &stats,
                 show_keyboard: false,
                 show_heatmap: false,
+                split_keyboard: false,
             }
             .render(f, f.area());
         })

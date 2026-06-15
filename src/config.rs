@@ -21,6 +21,7 @@ pub struct Config {
     pub stop_on_error: bool,
     pub punctuation: bool,
     pub numbers: bool,
+    pub split_keyboard: bool,
     pub keys: HashMap<String, KeySpec>,
 }
 
@@ -39,6 +40,7 @@ impl Default for Config {
             stop_on_error: false,
             punctuation: false,
             numbers: false,
+            split_keyboard: false,
             keys: HashMap::new(),
         }
     }

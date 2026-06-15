@@ -48,6 +48,9 @@ pub struct Args {
     /// wordlists dir).
     #[arg(long)]
     pub wordlist: Option<String>,
+    /// Render the on-screen keyboard with the halves spaced apart (split board).
+    #[arg(long)]
+    pub split: bool,
 }
 
 /// Which mode to launch directly (None => show the menu).
@@ -71,6 +74,7 @@ pub struct Settings {
     pub strict: bool,
     pub punctuation: bool,
     pub numbers: bool,
+    pub split_keyboard: bool,
     pub launch: LaunchMode,
 }
 
@@ -113,6 +117,7 @@ impl Settings {
             strict: args.strict || config.stop_on_error,
             punctuation: args.punctuation || config.punctuation,
             numbers: args.numbers || config.numbers,
+            split_keyboard: args.split || config.split_keyboard,
             launch,
         }
     }
