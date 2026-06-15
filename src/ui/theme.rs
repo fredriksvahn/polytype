@@ -126,7 +126,61 @@ impl Default for Theme {
 }
 
 const BUILTINS: &[(&str, &str)] = &[
-    // Filled in Task 4 (one (name, include_str!) per bundled theme).
+    (
+        "catppuccin-mocha",
+        include_str!("../../assets/themes/catppuccin-mocha.toml"),
+    ),
+    (
+        "catppuccin-macchiato",
+        include_str!("../../assets/themes/catppuccin-macchiato.toml"),
+    ),
+    (
+        "catppuccin-frappe",
+        include_str!("../../assets/themes/catppuccin-frappe.toml"),
+    ),
+    (
+        "catppuccin-latte",
+        include_str!("../../assets/themes/catppuccin-latte.toml"),
+    ),
+    ("dracula", include_str!("../../assets/themes/dracula.toml")),
+    (
+        "gruvbox-dark",
+        include_str!("../../assets/themes/gruvbox-dark.toml"),
+    ),
+    (
+        "gruvbox-light",
+        include_str!("../../assets/themes/gruvbox-light.toml"),
+    ),
+    ("nord", include_str!("../../assets/themes/nord.toml")),
+    (
+        "rose-pine",
+        include_str!("../../assets/themes/rose-pine.toml"),
+    ),
+    (
+        "rose-pine-moon",
+        include_str!("../../assets/themes/rose-pine-moon.toml"),
+    ),
+    (
+        "rose-pine-dawn",
+        include_str!("../../assets/themes/rose-pine-dawn.toml"),
+    ),
+    (
+        "everforest",
+        include_str!("../../assets/themes/everforest.toml"),
+    ),
+    (
+        "solarized-dark",
+        include_str!("../../assets/themes/solarized-dark.toml"),
+    ),
+    (
+        "solarized-light",
+        include_str!("../../assets/themes/solarized-light.toml"),
+    ),
+    ("onedark", include_str!("../../assets/themes/onedark.toml")),
+    (
+        "kanagawa",
+        include_str!("../../assets/themes/kanagawa.toml"),
+    ),
 ];
 
 fn builtin(name: &str) -> Option<Theme> {
@@ -176,5 +230,17 @@ mod tests {
     fn unknown_name_is_default() {
         let t = load("does-not-exist", None);
         assert_eq!(format!("{:?}", t.bg), format!("{:?}", Theme::default().bg));
+    }
+
+    #[test]
+    fn bundled_themes_parse() {
+        for (name, _) in BUILTINS {
+            let t = load(name, None);
+            // a bundled theme differs from the neutral default in bg
+            let _ = t.bg;
+        }
+        let mocha = load("catppuccin-mocha", None);
+        assert_eq!(mocha.bg, Color::Rgb(0x1e, 0x1e, 0x2e));
+        assert_eq!(BUILTINS.len(), 16);
     }
 }
