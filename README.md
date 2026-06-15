@@ -2,11 +2,15 @@
 
 A layout-agnostic terminal typing trainer. Keep your normal (QWERTY) OS layout;
 polytype remaps your keystrokes through the layout you want to learn — Colemak-DHm
-by default. Train with free word/timed tests or a graded lesson progression.
+by default. Train with free word/timed tests, quotes, or a graded lesson
+progression.
 
 ## Install
 
     cargo install --path .
+
+Installs the `polytype` command. Want a shorter name? Add your own alias or
+symlink, e.g. `ln -s polytype ~/.cargo/bin/pt`.
 
 ## Usage
 
@@ -20,10 +24,12 @@ by default. Train with free word/timed tests or a graded lesson progression.
     polytype --quotes                     # type a random quote/sentence
     polytype --quotes --quote-length long # only long quotes
     polytype --wordlist swedish --words 20 # train on the Swedish word list
+    polytype --split                      # space the keyboard halves (split board)
     cat text.txt | polytype --words 50    # use your own words
 
 `--no-keyboard` hides the on-screen keyboard; `--heatmap` colors keys by your
-accuracy.
+accuracy. `--split` (or `split_keyboard = true` in config) renders the on-screen
+keyboard with the two hands spaced apart — handy when you train on a split board.
 
 Words/timed tests can sprinkle punctuation and numbers: pass `--punctuation`
 and/or `--numbers`, toggle them in the menu, or set them in config:
@@ -73,12 +79,13 @@ modifiers (ctrl-, alt-, shift-), e.g. "ctrl-r".
 ## Layouts
 
 Built in: qwerty, colemak, colemak-dh, colemak-dhm (default), dvorak, workman,
-graphite. Add your own by dropping a `.toml` in `~/.config/polytype/layouts/`
-(see `assets/layouts/` for the format).
+graphite, and tarmak1–4 (the transitional steps toward Colemak). Add your own by
+dropping a `.toml` in `~/.config/polytype/layouts/` (see `assets/layouts/` for
+the format).
 
 ## Config
 
 `~/.config/polytype/config.toml` sets defaults (`target_layout`, `source_layout`,
-`show_keyboard`, `show_heatmap`, `wordlist`, ...). Custom wordlists go in
+`show_keyboard`, `show_heatmap`, `split_keyboard`, `wordlist`, ...). Custom wordlists go in
 `~/.config/polytype/wordlists/*.txt` (one word per line). Stats persist to
 `~/.local/share/polytype/keystats.toml`.
