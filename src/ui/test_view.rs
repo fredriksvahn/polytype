@@ -108,6 +108,58 @@ impl TestView<'_> {
     }
 }
 
+const WINDOW_HEIGHT: usize = 3;
+
+/// Greedy word-wrap: the line index for each char at the given width. Words
+/// break at spaces; a word wider than `width` is hard-split.
+fn wrap_line_index(chars: &[char], width: usize) -> Vec<usize> {
+    let width = width.max(1);
+    let mut idx = vec![0usize; chars.len()];
+    let mut line = 0usize;
+    let mut col = 0usize;
+    let mut i = 0usize;
+    while i < chars.len() {
+        if chars[i] == ' ' {
+            if col >= width {
+                line += 1;
+                col = 0;
+            }
+            idx[i] = line;
+            col += 1;
+            i += 1;
+        } else {
+            let mut j = i;
+            while j < chars.len() && chars[j] != ' ' {
+                j += 1;
+            }
+            let word_len = j - i;
+            if word_len <= width && col + word_len > width {
+                line += 1;
+                col = 0;
+            }
+            for k in i..j {
+                if col >= width {
+                    line += 1;
+                    col = 0;
+                }
+                idx[k] = line;
+                col += 1;
+            }
+            i = j;
+        }
+    }
+    idx
+}
+
+/// First visible line so the cursor's line sits on the middle row (top at the
+/// start, clamped near the end).
+fn window_start(cursor_line: usize, total_lines: usize, height: usize) -> usize {
+    if total_lines <= height {
+        return 0;
+    }
+    cursor_line.saturating_sub(1).min(total_lines - height)
+}
+
 /// For each char index, true if its word (run between spaces) contains a Wrong cell.
 fn word_has_error(chars: &[char], cells: &[Cell]) -> Vec<bool> {
     let mut flags = vec![false; chars.len()];
@@ -224,6 +276,34 @@ mod tests {
             buffer_text(&term).contains("delta"),
             "later word wrapped into view"
         );
+    }
+
+    #[test]
+    fn wrap_breaks_at_spaces() {
+        let chars: Vec<char> = "alpha bravo charlie delta".chars().collect();
+        let idx = wrap_line_index(&chars, 12);
+        // "alpha bravo " fits on line 0; "charlie" line 1; "delta" line 2
+        assert_eq!(idx[0], 0); // 'a' of alpha
+        assert_eq!(idx[chars.iter().position(|&c| c == 'c').unwrap()], 1); // 'c' of charlie
+        assert_eq!(idx[chars.len() - 1], 2); // 'a' of delta
+    }
+
+    #[test]
+    fn wrap_hard_splits_overlong_word() {
+        let chars: Vec<char> = "abcdefghij".chars().collect(); // 10 chars
+        let idx = wrap_line_index(&chars, 4);
+        assert_eq!(idx[0], 0);
+        assert_eq!(idx[3], 0);
+        assert_eq!(idx[4], 1);
+        assert_eq!(idx[9], 2);
+    }
+
+    #[test]
+    fn window_start_centers_then_clamps() {
+        assert_eq!(window_start(0, 10, 3), 0); // start: cursor on top
+        assert_eq!(window_start(5, 10, 3), 4); // middle
+        assert_eq!(window_start(9, 10, 3), 7); // clamp to last 3
+        assert_eq!(window_start(2, 3, 3), 0); // fits entirely
     }
 
     fn buffer_text(term: &Terminal<TestBackend>) -> String {
