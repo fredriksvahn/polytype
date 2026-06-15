@@ -1,6 +1,7 @@
 //! Menu state machine: pick mode + layout + (optional) lesson, then start.
 
 use crate::app::Mode;
+use crate::content::quotes::QuoteLength;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Field {
@@ -9,6 +10,7 @@ pub enum Field {
     LessonLevel,
     Punctuation,
     Numbers,
+    QuoteLength,
     Start,
 }
 
@@ -17,6 +19,7 @@ pub enum ModeKind {
     Words,
     Timed,
     Lesson,
+    Quote,
 }
 
 /// What the menu emits when the user activates "Start".
@@ -51,6 +54,7 @@ pub struct MenuState {
     pub layout_idx: usize,
     pub punctuation: bool,
     pub numbers: bool,
+    pub quote_length: QuoteLength,
 }
 
 impl MenuState {
@@ -66,6 +70,7 @@ impl MenuState {
                 Field::LessonLevel,
                 Field::Punctuation,
                 Field::Numbers,
+                Field::QuoteLength,
                 Field::Start,
             ],
             cursor: 0,
@@ -77,6 +82,7 @@ impl MenuState {
             layout_idx,
             punctuation: false,
             numbers: false,
+            quote_length: QuoteLength::All,
         }
     }
 
@@ -99,10 +105,12 @@ impl MenuState {
                 self.mode_kind = match (self.mode_kind, delta >= 0) {
                     (ModeKind::Words, true) => ModeKind::Timed,
                     (ModeKind::Timed, true) => ModeKind::Lesson,
-                    (ModeKind::Lesson, true) => ModeKind::Words,
-                    (ModeKind::Words, false) => ModeKind::Lesson,
+                    (ModeKind::Lesson, true) => ModeKind::Quote,
+                    (ModeKind::Quote, true) => ModeKind::Words,
+                    (ModeKind::Words, false) => ModeKind::Quote,
                     (ModeKind::Timed, false) => ModeKind::Words,
                     (ModeKind::Lesson, false) => ModeKind::Timed,
+                    (ModeKind::Quote, false) => ModeKind::Lesson,
                 };
             }
             Field::Layout => {
@@ -115,6 +123,18 @@ impl MenuState {
             }
             Field::Punctuation => self.punctuation = !self.punctuation,
             Field::Numbers => self.numbers = !self.numbers,
+            Field::QuoteLength => {
+                self.quote_length = match (self.quote_length, delta >= 0) {
+                    (QuoteLength::All, true) => QuoteLength::Short,
+                    (QuoteLength::Short, true) => QuoteLength::Medium,
+                    (QuoteLength::Medium, true) => QuoteLength::Long,
+                    (QuoteLength::Long, true) => QuoteLength::All,
+                    (QuoteLength::All, false) => QuoteLength::Long,
+                    (QuoteLength::Short, false) => QuoteLength::All,
+                    (QuoteLength::Medium, false) => QuoteLength::Short,
+                    (QuoteLength::Long, false) => QuoteLength::Medium,
+                };
+            }
             Field::Start => {}
         }
     }
@@ -125,6 +145,7 @@ impl MenuState {
             ModeKind::Words => Mode::Words(self.words),
             ModeKind::Timed => Mode::Timed(self.time),
             ModeKind::Lesson => Mode::Lesson(self.lesson_level),
+            ModeKind::Quote => Mode::Quote(self.quote_length),
         };
         StartRequest {
             mode,
@@ -156,6 +177,10 @@ impl MenuState {
             Mode::Lesson(l) => {
                 self.mode_kind = ModeKind::Lesson;
                 self.lesson_level = *l;
+            }
+            Mode::Quote(len) => {
+                self.mode_kind = ModeKind::Quote;
+                self.quote_length = *len;
             }
         }
     }
@@ -218,7 +243,7 @@ mod tests {
     fn start_emits_request_only_on_start_field() {
         let mut m = menu();
         assert!(m.activate().is_none()); // on ModeKind
-        m.cursor = 5; // Start
+        m.cursor = m.fields.iter().position(|f| *f == Field::Start).unwrap();
         let req = m.activate().unwrap();
         assert_eq!(req.mode, Mode::Words(50));
         assert_eq!(req.layout, "colemak-dhm");
@@ -227,14 +252,38 @@ mod tests {
     #[test]
     fn toggles_flip_and_flow_into_request() {
         let mut m = menu();
-        m.cursor = 3; // Punctuation
+        m.cursor = m
+            .fields
+            .iter()
+            .position(|f| *f == Field::Punctuation)
+            .unwrap();
         m.adjust(1);
         assert!(m.punctuation);
-        m.cursor = 4; // Numbers
+        m.cursor = m.fields.iter().position(|f| *f == Field::Numbers).unwrap();
         m.adjust(1);
         assert!(m.numbers);
-        m.cursor = 5; // Start
+        m.cursor = m.fields.iter().position(|f| *f == Field::Start).unwrap();
         let req = m.activate().unwrap();
         assert!(req.punctuation && req.numbers);
+    }
+
+    #[test]
+    fn mode_cycles_to_quote_and_request_carries_length() {
+        let mut m = menu();
+        // cycle ModeKind: Words -> Timed -> Lesson -> Quote
+        m.cursor = m.fields.iter().position(|f| *f == Field::ModeKind).unwrap();
+        m.adjust(1);
+        m.adjust(1);
+        m.adjust(1);
+        assert_eq!(m.mode_kind, ModeKind::Quote);
+        m.cursor = m
+            .fields
+            .iter()
+            .position(|f| *f == Field::QuoteLength)
+            .unwrap();
+        m.adjust(1); // All -> Short
+        m.cursor = m.fields.iter().position(|f| *f == Field::Start).unwrap();
+        let req = m.activate().unwrap();
+        assert_eq!(req.mode, Mode::Quote(QuoteLength::Short));
     }
 }

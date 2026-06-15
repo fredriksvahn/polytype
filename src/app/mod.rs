@@ -9,6 +9,7 @@ pub enum Mode {
     Words(usize),
     Timed(u64),
     Lesson(usize),
+    Quote(crate::content::quotes::QuoteLength),
 }
 
 /// Which screen is currently shown.
@@ -129,6 +130,8 @@ impl App {
                     .unwrap_or_else(|| prog[0].clone());
                 lessons::drill_text(&lesson, &self.word_pool, 30, rng)
             }
+            // Temporary: Task 5 replaces this with real quote loading/normalization.
+            Mode::Quote(_) => String::new(),
         };
 
         let remapper = Remapper::new(source, layout);
