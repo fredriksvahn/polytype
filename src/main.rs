@@ -20,11 +20,12 @@ fn main() -> std::io::Result<()> {
         .and_then(|p| KeyStats::load_from(p).ok())
         .unwrap_or_default();
 
-    // Word pool: piped stdin wins, else bundled english.
+    // Word pool: piped stdin wins, else the selected wordlist.
     let pool = {
         use std::io::IsTerminal;
         if std::io::stdin().is_terminal() {
-            wordlist::english()
+            let user_dir = Config::config_dir().map(|d| d.join("wordlists"));
+            wordlist::load_named(&settings.wordlist, user_dir.as_deref())
         } else {
             polytype::content::from_stdin().unwrap_or_else(|_| wordlist::english())
         }
