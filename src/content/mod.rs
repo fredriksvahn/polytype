@@ -2,6 +2,7 @@
 
 pub mod decorate;
 pub mod lessons;
+pub mod quotes;
 pub mod wordlist;
 
 use rand::seq::SliceRandom;

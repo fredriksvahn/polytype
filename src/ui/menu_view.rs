@@ -12,6 +12,7 @@ pub fn render(f: &mut Frame, area: Rect, menu: &MenuState) {
         ModeKind::Words => format!("Words ({})", menu.words),
         ModeKind::Timed => format!("Timed ({}s)", menu.time),
         ModeKind::Lesson => "Lesson".to_string(),
+        ModeKind::Quote => "Quote".to_string(),
     };
     let rows = [
         (Field::ModeKind, format!("Mode:   {mode}")),
@@ -25,6 +26,10 @@ pub fn render(f: &mut Frame, area: Rect, menu: &MenuState) {
             format!("Punct:  {}", on_off(menu.punctuation)),
         ),
         (Field::Numbers, format!("Nums:   {}", on_off(menu.numbers))),
+        (
+            Field::QuoteLength,
+            format!("Length: {}", menu.quote_length.label()),
+        ),
         (Field::Start, "[ Start ]".to_string()),
     ];
     let lines: Vec<Line> = rows

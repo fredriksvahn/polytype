@@ -9,6 +9,7 @@ pub enum Mode {
     Words(usize),
     Timed(u64),
     Lesson(usize),
+    Quote(crate::content::quotes::QuoteLength),
 }
 
 /// Which screen is currently shown.
@@ -22,6 +23,8 @@ pub enum Screen {
 use crate::app::menu::{MenuState, StartRequest};
 use crate::app::runner::SessionRunner;
 use crate::cli::Settings;
+use crate::config::Config;
+use crate::content::quotes::{self, QuoteLength};
 use crate::content::{decorate, generate_word_list, lessons};
 use crate::engine::Score;
 use crate::keys::Keymap;
@@ -128,6 +131,18 @@ impl App {
                     .cloned()
                     .unwrap_or_else(|| prog[0].clone());
                 lessons::drill_text(&lesson, &self.word_pool, 30, rng)
+            }
+            Mode::Quote(length) => {
+                let mut all = quotes::bundled();
+                if let Some(dir) = Config::config_dir().map(|d| d.join("quotes")) {
+                    if let Ok(user) = quotes::from_dir(&dir) {
+                        all.extend(user);
+                    }
+                }
+                let raw = quotes::pick(&all, *length, rng)
+                    .or_else(|| quotes::pick(&all, QuoteLength::All, rng))
+                    .unwrap_or_default();
+                quotes::normalize(&raw, &layout)
             }
         };
 
@@ -241,6 +256,26 @@ mod tests {
         a.open_panel();
         a.cancel_panel();
         assert!(a.overlay.is_none());
+    }
+
+    #[test]
+    fn quote_start_produces_typeable_text() {
+        let mut a = app();
+        let mut rng = rand::thread_rng();
+        a.start(
+            StartRequest::new(Mode::Quote(QuoteLength::All), "colemak-dhm".into()),
+            &mut rng,
+        );
+        let layout = a.target_layout().unwrap().clone();
+        let text = a.target_text.clone().unwrap();
+        assert!(!text.is_empty());
+        for c in text.chars().filter(|c| *c != ' ') {
+            // letters (any case) map via case-aware remap; others must be on-grid
+            let typeable = c.is_ascii_alphabetic()
+                || c.is_ascii_digit()
+                || layout.position_of(c.to_ascii_lowercase()).is_some();
+            assert!(typeable, "char {c:?} not typeable");
+        }
     }
 
     #[test]

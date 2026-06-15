@@ -21,7 +21,7 @@ pub fn hand_of(pos: usize) -> Hand {
 /// The grid position to highlight for the next expected char, if it is a key
 /// on the target layout (spaces and unknown chars return None).
 pub fn highlight_pos(target: &Layout, next_char: Option<char>) -> Option<usize> {
-    next_char.and_then(|c| target.position_of(c))
+    next_char.and_then(|c| target.position_of(c.to_ascii_lowercase()))
 }
 
 #[cfg(test)]
@@ -46,6 +46,13 @@ mod tests {
         let layout = dhm();
         // 'n' is on the colemak-dhm home row (right hand). Just assert it resolves.
         let pos = highlight_pos(&layout, Some('n')).unwrap();
+        assert_eq!(layout.char_at(pos), Some('n'));
+    }
+
+    #[test]
+    fn uppercase_next_char_highlights_lowercase_key() {
+        let layout = dhm();
+        let pos = highlight_pos(&layout, Some('N')).unwrap();
         assert_eq!(layout.char_at(pos), Some('n'));
     }
 
