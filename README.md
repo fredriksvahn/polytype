@@ -17,6 +17,8 @@ by default. Train with free word/timed tests or a graded lesson progression.
     polytype --strict --words 15          # stop on error: block until the letter is right
     polytype --words 30 --punctuation     # sprinkle punctuation into the words
     polytype --words 30 --numbers         # sprinkle numbers into the words
+    polytype --quotes                     # type a random quote/sentence
+    polytype --quotes --quote-length long # only long quotes
     cat text.txt | polytype --words 50    # use your own words
 
 `--no-keyboard` hides the on-screen keyboard; `--heatmap` colors keys by your
@@ -31,6 +33,12 @@ and/or `--numbers`, toggle them in the menu, or set them in config:
 Only punctuation that exists on the chosen layout's key grid is used (so it
 stays typeable through the remap); numbers pass through unchanged. Lessons are
 never decorated.
+
+Quote mode types whole sentences from a bundled list (add your own in
+`~/.config/polytype/quotes/*.txt`, one per line). Capitals are kept and typed
+with Shift; punctuation not on your layout's grid is stripped. Filter length
+with `--quote-length all|short|medium|long` or in the menu. Quotes are not
+decorated with punctuation or numbers.
 
 In strict mode the cursor won't advance until you type the correct letter.
 Mistyped letters show red; words with an error are underlined; backspace corrects.
