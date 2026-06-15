@@ -1,29 +1,42 @@
-//! Lesson progression: gradually introduce target-layout keys.
+//! Lessons: a generated key progression plus user-defined lessons (keys or text).
 
 use crate::layout::Layout;
 use rand::seq::SliceRandom;
 use rand::Rng;
+use serde::Deserialize;
+use std::path::Path;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LessonContent {
+    /// Allowed letters; drill words are generated from them.
+    Keys(Vec<char>),
+    /// A fixed passage to type verbatim.
+    Text(String),
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Lesson {
-    pub level: usize,
     pub name: String,
-    /// Allowed target-layout letters for this lesson (cumulative).
-    pub keys: Vec<char>,
+    pub content: LessonContent,
 }
 
-/// Order in which physical positions are introduced, by grid index.
-/// Home row first (indices 10..20), starting from the index/middle fingers,
-/// then top row (0..10), then bottom row (20..30).
+impl Lesson {
+    pub fn allowed_keys(&self) -> Option<&[char]> {
+        match &self.content {
+            LessonContent::Keys(k) => Some(k),
+            LessonContent::Text(_) => None,
+        }
+    }
+}
+
+/// Order in which physical positions are introduced (home row first, then top, bottom).
 const INTRO_ORDER: &[usize] = &[
-    // home row: left index/middle (13,12), right index/middle (16,17),
-    13, 16, 12, 17, 11, 18, 10, 19, 14, 15, // top row
-    3, 6, 2, 7, 1, 8, 0, 9, 4, 5, // bottom row
-    23, 26, 22, 27, 21, 28, 20, 29, 24, 25,
+    13, 16, 12, 17, 11, 18, 10, 19, 14, 15, // home
+    3, 6, 2, 7, 1, 8, 0, 9, 4, 5, // top
+    23, 26, 22, 27, 21, 28, 20, 29, 24, 25, // bottom
 ];
 
-/// Build the lesson progression for a target layout.
-/// Each lesson adds 2 new keys (5 keys in the first lesson to make words possible).
+/// Generated progression for a layout: each lesson adds keys (5 first, then 2).
 pub fn progression(target: &Layout) -> Vec<Lesson> {
     let mut lessons = Vec::new();
     let mut acc: Vec<char> = Vec::new();
@@ -43,37 +56,37 @@ pub fn progression(target: &Layout) -> Vec<Lesson> {
         }
         level += 1;
         lessons.push(Lesson {
-            level,
-            name: format!("Lektion {level}"),
-            keys: acc.clone(),
+            name: format!("Lesson {level}"),
+            content: LessonContent::Keys(acc.clone()),
         });
     }
     lessons
 }
 
-/// Generate drill text for a lesson from a wordlist, filtering to words whose
-/// letters are all allowed. Falls back to random letter groups when fewer than
-/// `min_words` qualify.
-pub fn drill_text<R: Rng>(
+/// Text for a lesson: literal for Text, generated drill for Keys.
+pub fn lesson_text<R: Rng>(
     lesson: &Lesson,
     pool: &[String],
     word_count: usize,
     rng: &mut R,
 ) -> String {
-    let allowed: std::collections::HashSet<char> = lesson.keys.iter().copied().collect();
+    let keys = match &lesson.content {
+        LessonContent::Text(t) => return t.clone(),
+        LessonContent::Keys(k) => k,
+    };
+    let allowed: std::collections::HashSet<char> = keys.iter().copied().collect();
     let usable: Vec<&String> = pool
         .iter()
         .filter(|w| !w.is_empty() && w.chars().all(|c| allowed.contains(&c)))
         .collect();
-
     if usable.len() >= 5 {
         (0..word_count)
             .map(|_| usable.choose(rng).unwrap().as_str())
             .collect::<Vec<_>>()
             .join(" ")
+    } else if keys.is_empty() {
+        String::new()
     } else {
-        // fallback: random 3-5 letter groups from the allowed set
-        let keys: Vec<char> = lesson.keys.clone();
         (0..word_count)
             .map(|_| {
                 let len = rng.gen_range(3..=5);
@@ -84,6 +97,60 @@ pub fn drill_text<R: Rng>(
             .collect::<Vec<_>>()
             .join(" ")
     }
+}
+
+#[derive(Debug, Deserialize)]
+struct LessonFile {
+    name: String,
+    #[serde(default)]
+    keys: Option<String>,
+    #[serde(default)]
+    text: Option<String>,
+}
+
+/// Load user lessons from `dir/*.toml` (sorted). `text` wins over `keys`; a file
+/// with neither is skipped.
+pub fn user_lessons(dir: Option<&Path>) -> Vec<Lesson> {
+    let mut out = Vec::new();
+    let Some(dir) = dir else { return out };
+    if !dir.is_dir() {
+        return out;
+    }
+    let mut paths: Vec<std::path::PathBuf> = match std::fs::read_dir(dir) {
+        Ok(rd) => rd
+            .filter_map(|e| e.ok().map(|e| e.path()))
+            .filter(|p| p.extension().and_then(|x| x.to_str()) == Some("toml"))
+            .collect(),
+        Err(_) => return out,
+    };
+    paths.sort();
+    for path in paths {
+        let Ok(text) = std::fs::read_to_string(&path) else {
+            continue;
+        };
+        let Ok(lf) = toml::from_str::<LessonFile>(&text) else {
+            continue;
+        };
+        let content = if let Some(t) = lf.text.filter(|s| !s.trim().is_empty()) {
+            LessonContent::Text(t)
+        } else if let Some(k) = lf.keys.filter(|s| !s.trim().is_empty()) {
+            LessonContent::Keys(k.chars().filter(|c| !c.is_whitespace()).collect())
+        } else {
+            continue;
+        };
+        out.push(Lesson {
+            name: lf.name,
+            content,
+        });
+    }
+    out
+}
+
+/// Generated progression for `layout` followed by the user lessons.
+pub fn all_lessons(layout: &Layout, user: &[Lesson]) -> Vec<Lesson> {
+    let mut v = progression(layout);
+    v.extend(user.iter().cloned());
+    v
 }
 
 #[cfg(test)]
@@ -100,28 +167,75 @@ mod tests {
     #[test]
     fn first_lesson_has_five_keys() {
         let p = progression(&dhm());
-        assert_eq!(p[0].keys.len(), 5);
+        assert_eq!(p[0].allowed_keys().unwrap().len(), 5);
     }
 
     #[test]
     fn lessons_are_cumulative() {
         let p = progression(&dhm());
         for w in p.windows(2) {
-            assert!(w[1].keys.len() >= w[0].keys.len());
-            assert!(w[0].keys.iter().all(|c| w[1].keys.contains(c)));
+            let a = w[0].allowed_keys().unwrap();
+            let b = w[1].allowed_keys().unwrap();
+            assert!(b.len() >= a.len());
+            assert!(a.iter().all(|c| b.contains(c)));
         }
     }
 
     #[test]
-    fn drill_only_uses_allowed_keys() {
+    fn keys_lesson_only_uses_allowed() {
         let p = progression(&dhm());
-        let lesson = &p[0];
-        let pool: Vec<String> = vec![]; // force fallback
         let mut rng = StdRng::seed_from_u64(1);
-        let text = drill_text(lesson, &pool, 10, &mut rng);
-        let allowed: std::collections::HashSet<char> = lesson.keys.iter().copied().collect();
+        let text = lesson_text(&p[0], &[], 10, &mut rng); // empty pool → fallback
+        let allowed: std::collections::HashSet<char> =
+            p[0].allowed_keys().unwrap().iter().copied().collect();
         for c in text.chars().filter(|c| *c != ' ') {
             assert!(allowed.contains(&c), "char {c} not allowed");
         }
+    }
+
+    #[test]
+    fn text_lesson_is_verbatim() {
+        let l = Lesson {
+            name: "p".into(),
+            content: LessonContent::Text("hello world".into()),
+        };
+        let mut rng = StdRng::seed_from_u64(1);
+        assert_eq!(lesson_text(&l, &[], 5, &mut rng), "hello world");
+    }
+
+    #[test]
+    fn user_lessons_parse_keys_text_and_skip() {
+        let dir = std::env::temp_dir().join("polytype-test-lessons");
+        std::fs::remove_dir_all(&dir).ok();
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("a.toml"), "name = \"keys one\"\nkeys = \"abc\"\n").unwrap();
+        std::fs::write(
+            dir.join("b.toml"),
+            "name = \"text one\"\ntext = \"hi there\"\n",
+        )
+        .unwrap();
+        std::fs::write(
+            dir.join("c.toml"),
+            "name = \"both\"\nkeys = \"xyz\"\ntext = \"wins\"\n",
+        )
+        .unwrap();
+        std::fs::write(dir.join("d.toml"), "name = \"empty\"\n").unwrap();
+        let ls = user_lessons(Some(&dir));
+        assert_eq!(ls.len(), 3); // d skipped
+        assert_eq!(ls[0].content, LessonContent::Keys(vec!['a', 'b', 'c']));
+        assert_eq!(ls[1].content, LessonContent::Text("hi there".into()));
+        assert_eq!(ls[2].content, LessonContent::Text("wins".into())); // text wins
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn all_lessons_appends_user() {
+        let user = vec![Lesson {
+            name: "mine".into(),
+            content: LessonContent::Text("t".into()),
+        }];
+        let all = all_lessons(&dhm(), &user);
+        assert_eq!(all.last().unwrap().name, "mine");
+        assert!(all.len() == progression(&dhm()).len() + 1);
     }
 }
