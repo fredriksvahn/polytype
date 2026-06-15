@@ -27,6 +27,7 @@ pub enum Screen {
     Menu,
     Test,
     Results,
+    Stats,
 }
 
 use crate::app::menu::{MenuState, StartRequest};

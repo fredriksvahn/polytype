@@ -39,6 +39,7 @@ pub fn run(app: &mut App) -> io::Result<()> {
                         Screen::Menu => handle_menu_key(app, key, &mut started, &mut rng),
                         Screen::Test => handle_test_key(app, key, &mut started, &mut rng),
                         Screen::Results => handle_results_key(app, key, &mut started, &mut rng),
+                        Screen::Stats => handle_stats_key(app, key),
                     }
                 }
             }
@@ -74,11 +75,15 @@ fn handle_menu_key(
     } else if app.keymap.matches(Action::NavNext, &key) {
         app.menu.adjust(1);
     } else if app.keymap.matches(Action::Confirm, &key) {
-        if app.menu.focused() == Field::EditConfig {
-            app.pending_edit_config = true;
-        } else if let Some(req) = app.menu.activate() {
-            app.start(req, rng);
-            *started = Instant::now();
+        match app.menu.focused() {
+            Field::Stats => app.screen = Screen::Stats,
+            Field::EditConfig => app.pending_edit_config = true,
+            _ => {
+                if let Some(req) = app.menu.activate() {
+                    app.start(req, rng);
+                    *started = Instant::now();
+                }
+            }
         }
     }
 }
@@ -178,12 +183,19 @@ fn handle_overlay_key(
             m.adjust(1);
         }
     } else if app.keymap.matches(Action::Confirm, &key) {
-        if app.overlay.as_ref().map(|m| m.focused()) == Some(Field::EditConfig) {
-            app.pending_edit_config = true;
-            app.cancel_panel();
-        } else {
-            app.confirm_panel(rng);
-            *started = Instant::now();
+        match app.overlay.as_ref().map(|m| m.focused()) {
+            Some(Field::Stats) => {
+                app.screen = Screen::Stats;
+                app.cancel_panel();
+            }
+            Some(Field::EditConfig) => {
+                app.pending_edit_config = true;
+                app.cancel_panel();
+            }
+            _ => {
+                app.confirm_panel(rng);
+                *started = Instant::now();
+            }
         }
     } else if app.keymap.matches(Action::PanelCancel, &key) {
         // Resume: shift the clock so elapsed continues from where it froze.
@@ -191,4 +203,9 @@ fn handle_overlay_key(
         *started = Instant::now() - Duration::from_secs_f64(elapsed);
         app.cancel_panel();
     }
+}
+
+fn handle_stats_key(app: &mut App, _key: KeyEvent) {
+    // Any key returns to the menu (Quit is handled globally before this).
+    app.screen = Screen::Menu;
 }
