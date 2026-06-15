@@ -10,7 +10,7 @@ use crate::ui::{heat, theme};
 use ratatui::layout::{Constraint, Direction, Layout as LLayout, Rect};
 use ratatui::style::{Modifier, Style, Stylize};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Paragraph, Wrap};
+use ratatui::widgets::Paragraph;
 use ratatui::Frame;
 
 pub struct TestView<'a> {
@@ -28,7 +28,7 @@ impl TestView<'_> {
             .direction(Direction::Vertical)
             .constraints([
                 Constraint::Length(1), // status
-                Constraint::Min(3),    // text
+                Constraint::Length(3), // text window
                 Constraint::Length(5), // keyboard
             ])
             .split(area);
@@ -46,35 +46,47 @@ impl TestView<'_> {
             chunks[0],
         );
 
-        // Target text colored by per-position outcome.
+        // Target text colored by per-position outcome, wrapped into lines, then
+        // scrolled so the cursor's line stays visible (middle of a 3-line window).
         let cursor = self.runner.cursor();
         let cells = self.runner.cells();
         let chars: Vec<char> = self.target_text.chars().collect();
         let word_err = word_has_error(&chars, cells);
 
-        let spans: Vec<Span> = chars
-            .iter()
-            .enumerate()
-            .map(|(i, &c)| {
-                let mut style = if i == cursor {
-                    Style::new().fg(theme::CURSOR_FG).bg(theme::CURSOR_BG)
-                } else {
-                    match cells.get(i) {
-                        Some(Cell::Correct) => Style::new().fg(theme::CORRECT),
-                        Some(Cell::Wrong) => Style::new().fg(theme::WRONG),
-                        _ => Style::new().fg(theme::TODO),
-                    }
-                };
-                if word_err.get(i).copied().unwrap_or(false) {
-                    style = style.add_modifier(Modifier::UNDERLINED);
+        let width = chunks[1].width.max(1) as usize;
+        let line_idx = wrap_line_index(&chars, width);
+        let total_lines = line_idx.last().map(|l| l + 1).unwrap_or(1);
+        let cursor_line = if chars.is_empty() {
+            0
+        } else {
+            line_idx[cursor.min(chars.len() - 1)]
+        };
+        let start = window_start(cursor_line, total_lines, WINDOW_HEIGHT);
+
+        let mut line_spans: Vec<Vec<Span>> = vec![Vec::new(); total_lines];
+        for (i, &c) in chars.iter().enumerate() {
+            let mut style = if i == cursor {
+                Style::new().fg(theme::CURSOR_FG).bg(theme::CURSOR_BG)
+            } else {
+                match cells.get(i) {
+                    Some(Cell::Correct) => Style::new().fg(theme::CORRECT),
+                    Some(Cell::Wrong) => Style::new().fg(theme::WRONG),
+                    _ => Style::new().fg(theme::TODO),
                 }
-                Span::styled(c.to_string(), style)
-            })
+            };
+            if word_err.get(i).copied().unwrap_or(false) {
+                style = style.add_modifier(Modifier::UNDERLINED);
+            }
+            line_spans[line_idx[i]].push(Span::styled(c.to_string(), style));
+        }
+
+        let visible: Vec<Line> = line_spans
+            .into_iter()
+            .skip(start)
+            .take(WINDOW_HEIGHT)
+            .map(Line::from)
             .collect();
-        f.render_widget(
-            Paragraph::new(Line::from(spans)).wrap(Wrap { trim: false }),
-            chunks[1],
-        );
+        f.render_widget(Paragraph::new(visible), chunks[1]);
 
         // Keyboard
         if self.show_keyboard {
@@ -106,6 +118,58 @@ impl TestView<'_> {
         }
         lines
     }
+}
+
+const WINDOW_HEIGHT: usize = 3;
+
+/// Greedy word-wrap: the line index for each char at the given width. Words
+/// break at spaces; a word wider than `width` is hard-split.
+fn wrap_line_index(chars: &[char], width: usize) -> Vec<usize> {
+    let width = width.max(1);
+    let mut idx = vec![0usize; chars.len()];
+    let mut line = 0usize;
+    let mut col = 0usize;
+    let mut i = 0usize;
+    while i < chars.len() {
+        if chars[i] == ' ' {
+            if col >= width {
+                line += 1;
+                col = 0;
+            }
+            idx[i] = line;
+            col += 1;
+            i += 1;
+        } else {
+            let mut j = i;
+            while j < chars.len() && chars[j] != ' ' {
+                j += 1;
+            }
+            let word_len = j - i;
+            if word_len <= width && col + word_len > width {
+                line += 1;
+                col = 0;
+            }
+            for idx_k in idx.iter_mut().take(j).skip(i) {
+                if col >= width {
+                    line += 1;
+                    col = 0;
+                }
+                *idx_k = line;
+                col += 1;
+            }
+            i = j;
+        }
+    }
+    idx
+}
+
+/// First visible line so the cursor's line sits on the middle row (top at the
+/// start, clamped near the end).
+fn window_start(cursor_line: usize, total_lines: usize, height: usize) -> usize {
+    if total_lines <= height {
+        return 0;
+    }
+    cursor_line.saturating_sub(1).min(total_lines - height)
 }
 
 /// For each char index, true if its word (run between spaces) contains a Wrong cell.
@@ -224,6 +288,72 @@ mod tests {
             buffer_text(&term).contains("delta"),
             "later word wrapped into view"
         );
+    }
+
+    #[test]
+    fn cursor_stays_visible_when_scrolled() {
+        let reg = load_registry(None).unwrap();
+        let target = reg["qwerty"].clone();
+        let remapper = Remapper::new(reg["qwerty"].clone(), target.clone());
+        let text = "alpha bravo charlie delta echo foxtrot golf hotel india";
+        let mut runner = SessionRunner::new(text, remapper, Mode::Words(9));
+        // Advance the cursor far into the text (free mode advances on any key).
+        for _ in 0..40 {
+            runner.type_char('x');
+        }
+        let stats = KeyStats::default();
+
+        let mut term = Terminal::new(TestBackend::new(10, 8)).unwrap();
+        term.draw(|f| {
+            TestView {
+                runner: &runner,
+                target_text: text,
+                target_layout: &target,
+                stats: &stats,
+                show_keyboard: false,
+                show_heatmap: false,
+            }
+            .render(f, f.area());
+        })
+        .unwrap();
+
+        let content: String = term
+            .backend()
+            .buffer()
+            .content()
+            .iter()
+            .map(|c| c.symbol())
+            .collect();
+        assert!(!content.contains("alpha"), "early word scrolled off");
+        assert!(content.contains("india"), "cursor's region is visible");
+    }
+
+    #[test]
+    fn wrap_breaks_at_spaces() {
+        let chars: Vec<char> = "alpha bravo charlie delta".chars().collect();
+        let idx = wrap_line_index(&chars, 12);
+        // "alpha bravo " fits on line 0; "charlie" line 1; "delta" line 2
+        assert_eq!(idx[0], 0); // 'a' of alpha
+        assert_eq!(idx[chars.iter().position(|&c| c == 'c').unwrap()], 1); // 'c' of charlie
+        assert_eq!(idx[chars.len() - 1], 2); // 'a' of delta
+    }
+
+    #[test]
+    fn wrap_hard_splits_overlong_word() {
+        let chars: Vec<char> = "abcdefghij".chars().collect(); // 10 chars
+        let idx = wrap_line_index(&chars, 4);
+        assert_eq!(idx[0], 0);
+        assert_eq!(idx[3], 0);
+        assert_eq!(idx[4], 1);
+        assert_eq!(idx[9], 2);
+    }
+
+    #[test]
+    fn window_start_centers_then_clamps() {
+        assert_eq!(window_start(0, 10, 3), 0); // start: cursor on top
+        assert_eq!(window_start(5, 10, 3), 4); // middle
+        assert_eq!(window_start(9, 10, 3), 7); // clamp to last 3
+        assert_eq!(window_start(2, 3, 3), 0); // fits entirely
     }
 
     fn buffer_text(term: &Terminal<TestBackend>) -> String {
