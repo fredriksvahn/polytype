@@ -47,6 +47,10 @@ fn main() -> std::io::Result<()> {
             menu_req(&settings, polytype::app::Mode::Lesson(n)),
             &mut rng,
         ),
+        LaunchMode::Quote(len) => app.start(
+            menu_req(&settings, polytype::app::Mode::Quote(len)),
+            &mut rng,
+        ),
     }
 
     polytype::term::run(&mut app)?;

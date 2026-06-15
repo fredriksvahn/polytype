@@ -1,6 +1,7 @@
 //! CLI arguments, resolved over the on-disk `Config` into effective `Settings`.
 
 use crate::config::Config;
+use crate::content::quotes::QuoteLength;
 use clap::Parser;
 
 /// polytype — a layout-agnostic terminal typing trainer.
@@ -37,6 +38,12 @@ pub struct Args {
     /// Sprinkle numbers into words/timed tests.
     #[arg(long)]
     pub numbers: bool,
+    /// Type a random quote/sentence.
+    #[arg(long)]
+    pub quotes: bool,
+    /// Quote length filter: all, short, medium, long.
+    #[arg(long)]
+    pub quote_length: Option<String>,
 }
 
 /// Which mode to launch directly (None => show the menu).
@@ -46,6 +53,7 @@ pub enum LaunchMode {
     Words(usize),
     Timed(u64),
     Lesson(usize),
+    Quote(QuoteLength),
 }
 
 /// Effective settings after merging CLI args over `Config`.
@@ -71,6 +79,10 @@ impl Settings {
             LaunchMode::Timed(secs)
         } else if let Some(n) = args.words {
             LaunchMode::Words(n)
+        } else if args.quotes {
+            LaunchMode::Quote(QuoteLength::parse(
+                args.quote_length.as_deref().unwrap_or("all"),
+            ))
         } else {
             // No mode flag given: show the menu.
             LaunchMode::Menu
@@ -170,5 +182,19 @@ mod tests {
         };
         let s = Settings::resolve(&args, &Config::default());
         assert_eq!(s.launch, LaunchMode::Lesson(3));
+    }
+
+    #[test]
+    fn quotes_launch_with_length() {
+        use crate::content::quotes::QuoteLength;
+        let args = Args {
+            quotes: true,
+            quote_length: Some("medium".into()),
+            ..Args::default()
+        };
+        assert_eq!(
+            Settings::resolve(&args, &Config::default()).launch,
+            LaunchMode::Quote(QuoteLength::Medium)
+        );
     }
 }
