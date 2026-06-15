@@ -64,6 +64,7 @@ pub struct App {
     pub overlay: Option<MenuState>,
     pub pending_edit_config: bool,
     pub theme: crate::ui::theme::Theme,
+    pub user_lessons: Vec<crate::content::lessons::Lesson>,
 }
 
 impl App {
@@ -76,6 +77,11 @@ impl App {
     ) -> Self {
         let menu = Self::seed_menu(&settings, &registry);
         let theme = Self::load_theme(&settings);
+        let user_lessons = crate::content::lessons::user_lessons(
+            crate::config::Config::config_dir()
+                .map(|d| d.join("lessons"))
+                .as_deref(),
+        );
         App {
             settings,
             registry,
@@ -96,6 +102,7 @@ impl App {
             overlay: None,
             pending_edit_config: false,
             theme,
+            user_lessons,
         }
     }
 
@@ -136,6 +143,9 @@ impl App {
         self.registry = registry;
         self.word_pool = pool;
         self.keymap = keymap;
+        self.user_lessons = crate::content::lessons::user_lessons(
+            Config::config_dir().map(|d| d.join("lessons")).as_deref(),
+        );
         self.overlay = None;
         self.runner = None;
         self.target_text = None;
@@ -154,6 +164,15 @@ impl App {
         self.current_layout
             .as_ref()
             .and_then(|n| self.registry.get(n))
+    }
+
+    /// Name of the lesson at `level` (1-based) for `layout_name`, if resolvable.
+    pub fn lesson_name(&self, layout_name: &str, level: usize) -> Option<String> {
+        let layout = self.registry.get(layout_name)?;
+        let all = lessons::all_lessons(layout, &self.user_lessons);
+        all.get(level.saturating_sub(1))
+            .or_else(|| all.first())
+            .map(|l| l.name.clone())
     }
 
     /// Build target text for a start request and enter the Test screen.
@@ -184,12 +203,11 @@ impl App {
                 words.join(" ")
             }
             Mode::Lesson(level) => {
-                let prog = lessons::progression(&layout);
-                let lesson = prog
-                    .get(level.saturating_sub(1))
-                    .cloned()
-                    .unwrap_or_else(|| prog[0].clone());
-                lessons::drill_text(&lesson, &self.word_pool, 30, rng)
+                let all = lessons::all_lessons(&layout, &self.user_lessons);
+                match all.get(level.saturating_sub(1)).or_else(|| all.first()) {
+                    Some(lesson) => lessons::lesson_text(lesson, &self.word_pool, 30, rng),
+                    None => String::new(),
+                }
             }
             Mode::Quote(length) => {
                 let mut all = quotes::bundled();
@@ -290,6 +308,13 @@ mod tests {
             vec!["the".into(), "fox".into()],
             Keymap::defaults(),
         )
+    }
+
+    #[test]
+    fn lesson_name_resolves() {
+        let a = app();
+        let name = a.lesson_name("colemak-dhm", 1);
+        assert_eq!(name.as_deref(), Some("Lesson 1"));
     }
 
     #[test]

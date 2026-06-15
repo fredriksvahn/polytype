@@ -12,7 +12,13 @@ pub fn render(f: &mut Frame, app: &App) {
     // Solid background so the terminal's own backdrop doesn't show through.
     f.render_widget(Block::default().style(Style::new().bg(app.theme.bg)), area);
     match app.screen {
-        Screen::Menu => menu_view::render(f, area, &app.menu, &app.theme),
+        Screen::Menu => {
+            let name = app.lesson_name(
+                &app.menu.layouts[app.menu.layout_idx],
+                app.menu.lesson_level,
+            );
+            menu_view::render(f, area, &app.menu, &app.theme, name.as_deref());
+        }
         Screen::Test => {
             if let (Some(runner), Some(text), Some(layout)) = (
                 app.runner.as_ref(),
@@ -59,7 +65,8 @@ pub fn render(f: &mut Frame, app: &App) {
         let panel = centered_rect(60, 60, area);
         f.render_widget(Clear, panel);
         f.render_widget(Block::default().style(Style::new().bg(app.theme.bg)), panel);
-        menu_view::render(f, panel, overlay, &app.theme);
+        let name = app.lesson_name(&overlay.layouts[overlay.layout_idx], overlay.lesson_level);
+        menu_view::render(f, panel, overlay, &app.theme, name.as_deref());
     }
 }
 

@@ -8,7 +8,13 @@ use ratatui::text::Line;
 use ratatui::widgets::Paragraph;
 use ratatui::Frame;
 
-pub fn render(f: &mut Frame, area: Rect, menu: &MenuState, theme: &Theme) {
+pub fn render(
+    f: &mut Frame,
+    area: Rect,
+    menu: &MenuState,
+    theme: &Theme,
+    lesson_name: Option<&str>,
+) {
     let mode = match menu.mode_kind {
         ModeKind::Words => format!("Words ({})", menu.words),
         ModeKind::Timed => format!("Timed ({}s)", menu.time),
@@ -21,7 +27,13 @@ pub fn render(f: &mut Frame, area: Rect, menu: &MenuState, theme: &Theme) {
             Field::Layout,
             format!("Layout: {}", menu.layouts[menu.layout_idx]),
         ),
-        (Field::LessonLevel, format!("Lesson: {}", menu.lesson_level)),
+        (
+            Field::LessonLevel,
+            match lesson_name {
+                Some(n) => format!("Lesson: {} {}", menu.lesson_level, n),
+                None => format!("Lesson: {}", menu.lesson_level),
+            },
+        ),
         (
             Field::Punctuation,
             format!("Punct:  {}", on_off(menu.punctuation)),
@@ -68,7 +80,8 @@ mod tests {
         let menu = MenuState::new(vec!["colemak-dhm".into()], "colemak-dhm");
         let theme = Theme::default();
         let mut term = Terminal::new(TestBackend::new(40, 14)).unwrap();
-        term.draw(|f| render(f, f.area(), &menu, &theme)).unwrap();
+        term.draw(|f| render(f, f.area(), &menu, &theme, None))
+            .unwrap();
         let content: String = term
             .backend()
             .buffer()
