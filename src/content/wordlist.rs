@@ -5,10 +5,30 @@ use std::io::Read;
 use std::path::Path;
 
 const ENGLISH: &str = include_str!("../../assets/wordlists/english.txt");
+const SWEDISH: &str = include_str!("../../assets/wordlists/swedish.txt");
 
 /// Load the bundled English wordlist.
 pub fn english() -> Vec<String> {
     parse_words(ENGLISH)
+}
+
+/// Load a named wordlist: a user file `<user_dir>/<name>.txt` wins, else a
+/// bundled language ("english"/"swedish"), else fall back to English.
+pub fn load_named(name: &str, user_dir: Option<&std::path::Path>) -> Vec<String> {
+    if let Some(dir) = user_dir {
+        let path = dir.join(format!("{name}.txt"));
+        if path.is_file() {
+            if let Ok(words) = from_file(&path) {
+                if !words.is_empty() {
+                    return words;
+                }
+            }
+        }
+    }
+    match name {
+        "swedish" => parse_words(SWEDISH),
+        _ => english(),
+    }
 }
 
 /// Load a custom wordlist file (one word per line; blank lines ignored).
@@ -55,5 +75,30 @@ mod tests {
         let words = from_file(&p).unwrap();
         assert_eq!(words, vec!["alpha", "beta"]);
         std::fs::remove_file(&p).ok();
+    }
+
+    #[test]
+    fn load_named_swedish_has_accented_words() {
+        let w = load_named("swedish", None);
+        assert!(!w.is_empty());
+        assert!(
+            w.iter().any(|word| word.chars().any(|c| "åäö".contains(c))),
+            "swedish list contains å/ä/ö"
+        );
+    }
+
+    #[test]
+    fn load_named_unknown_falls_back_to_english() {
+        assert_eq!(load_named("klingon", None), english());
+    }
+
+    #[test]
+    fn load_named_user_dir_overrides() {
+        let dir = std::env::temp_dir().join("polytype-test-wl-named");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("mylang.txt"), "alpha\nbeta\n").unwrap();
+        let w = load_named("mylang", Some(&dir));
+        assert_eq!(w, vec!["alpha".to_string(), "beta".to_string()]);
+        std::fs::remove_dir_all(&dir).ok();
     }
 }
