@@ -1,10 +1,11 @@
 //! Renders the menu screen.
 
 use crate::app::menu::{Field, MenuState, ModeKind};
+use crate::ui::theme;
 use ratatui::layout::Rect;
 use ratatui::style::{Style, Stylize};
 use ratatui::text::Line;
-use ratatui::widgets::{Block, Borders, Paragraph};
+use ratatui::widgets::Paragraph;
 use ratatui::Frame;
 
 pub fn render(f: &mut Frame, area: Rect, menu: &MenuState) {
@@ -32,20 +33,18 @@ pub fn render(f: &mut Frame, area: Rect, menu: &MenuState) {
         ),
         (Field::Start, "[ Start ]".to_string()),
     ];
-    let lines: Vec<Line> = rows
-        .iter()
-        .map(|(field, text)| {
-            let mut line = Line::from(text.clone());
-            if *field == menu.focused() {
-                line = line.style(Style::new().reversed());
-            }
-            line
-        })
-        .collect();
-    f.render_widget(
-        Paragraph::new(lines).block(Block::default().title("polytype").borders(Borders::ALL)),
-        area,
-    );
+    let mut lines: Vec<Line> = Vec::with_capacity(rows.len() + 2);
+    lines.push(Line::from("polytype").style(Style::new().fg(theme::STATUS)));
+    lines.push(Line::from(""));
+    for (field, text) in rows.iter() {
+        let mut line = Line::from(text.clone());
+        if *field == menu.focused() {
+            line = line.style(Style::new().reversed());
+        }
+        lines.push(line);
+    }
+    let block = crate::ui::centered_column(area, 32, lines.len() as u16);
+    f.render_widget(Paragraph::new(lines), block);
 }
 
 fn on_off(b: bool) -> &'static str {

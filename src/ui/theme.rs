@@ -4,6 +4,7 @@ use crate::ui::heat::Heat;
 use crate::ui::keyboard::Hand;
 use ratatui::style::Color;
 
+pub const BG: Color = Color::Rgb(20, 20, 22);
 pub const CURSOR_BG: Color = Color::Yellow;
 pub const CURSOR_FG: Color = Color::Black;
 pub const TODO: Color = Color::Gray;

@@ -1,13 +1,16 @@
 //! Top-level render dispatch by screen.
 
 use crate::app::{App, Screen};
-use crate::ui::{menu_view, results, test_view::TestView};
+use crate::ui::{menu_view, results, test_view::TestView, theme};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::widgets::Clear;
+use ratatui::style::Style;
+use ratatui::widgets::{Block, Clear};
 use ratatui::Frame;
 
 pub fn render(f: &mut Frame, app: &App) {
     let area = f.area();
+    // Solid background so the terminal's own backdrop doesn't show through.
+    f.render_widget(Block::default().style(Style::new().bg(theme::BG)), area);
     match app.screen {
         Screen::Menu => menu_view::render(f, area, &app.menu),
         Screen::Test => {
@@ -38,6 +41,7 @@ pub fn render(f: &mut Frame, app: &App) {
     if let Some(overlay) = &app.overlay {
         let panel = centered_rect(60, 60, area);
         f.render_widget(Clear, panel);
+        f.render_widget(Block::default().style(Style::new().bg(theme::BG)), panel);
         menu_view::render(f, panel, overlay);
     }
 }

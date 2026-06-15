@@ -24,17 +24,9 @@ pub struct TestView<'a> {
 
 impl TestView<'_> {
     pub fn render(&self, f: &mut Frame, area: Rect) {
-        // Vertically center the whole block (status + gap + text + gap + keyboard).
+        // Calm centered column (~64 wide), centered vertically too (tt-like).
         let content_h: u16 = if self.show_keyboard { 9 } else { 5 };
-        let outer = LLayout::default()
-            .direction(Direction::Vertical)
-            .constraints([
-                Constraint::Fill(1),
-                Constraint::Length(content_h),
-                Constraint::Fill(1),
-            ])
-            .split(area);
-        let inner = outer[1];
+        let inner = crate::ui::centered_column(area, 64, content_h);
         let rows = if self.show_keyboard {
             LLayout::default()
                 .direction(Direction::Vertical)
@@ -125,7 +117,10 @@ impl TestView<'_> {
             let next = self.target_text.chars().nth(cursor);
             let hl = highlight_pos(self.target_layout, next);
             let kb = self.keyboard_lines(hl);
-            f.render_widget(Paragraph::new(kb), rows[4]);
+            f.render_widget(
+                Paragraph::new(kb).alignment(ratatui::layout::Alignment::Center),
+                rows[4],
+            );
         }
     }
 
