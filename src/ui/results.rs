@@ -2,12 +2,13 @@
 
 use crate::engine::Score;
 use crate::stats::KeyStats;
-use ratatui::layout::Rect;
+use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use ratatui::text::Line;
-use ratatui::widgets::{Block, Borders, Paragraph};
+use ratatui::widgets::Paragraph;
 use ratatui::Frame;
 
 pub fn render(f: &mut Frame, area: Rect, score: &Score, session_keys: &KeyStats) {
+    let cpm = (score.wpm * 5.0).round() as u64;
     let weak = weakest_keys(session_keys, 5);
     let weak_str = if weak.is_empty() {
         "none".to_string()
@@ -18,16 +19,24 @@ pub fn render(f: &mut Frame, area: Rect, score: &Score, session_keys: &KeyStats)
             .join("  ")
     };
     let lines = vec![
-        Line::from(format!("WPM:      {:.0}", score.wpm)),
-        Line::from(format!("Accuracy: {:.0}%", score.accuracy * 100.0)),
-        Line::from(format!("Weakest:  {weak_str}")),
+        Line::from(format!("cpm {cpm}")),
+        Line::from(format!("wpm {:.0}", score.wpm)),
+        Line::from(format!("acc {:.0}%", score.accuracy * 100.0)),
         Line::from(""),
-        Line::from("tab = next   esc = menu   ctrl-c = quit"),
+        Line::from(format!("weakest:  {weak_str}")),
+        Line::from(""),
+        Line::from("tab next   esc menu   ctrl-c quit"),
     ];
-    f.render_widget(
-        Paragraph::new(lines).block(Block::default().title("Results").borders(Borders::ALL)),
-        area,
-    );
+    let content_h = lines.len() as u16;
+    let outer = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Fill(1),
+            Constraint::Length(content_h),
+            Constraint::Fill(1),
+        ])
+        .split(area);
+    f.render_widget(Paragraph::new(lines).alignment(Alignment::Center), outer[1]);
 }
 
 /// The `n` keys with the lowest accuracy (only keys typed at least once).
@@ -76,9 +85,11 @@ mod tests {
             .iter()
             .map(|c| c.symbol())
             .collect();
-        assert!(content.contains("WPM"));
+        assert!(content.contains("wpm"));
         assert!(content.contains("62"));
         assert!(content.contains("97%"));
+        assert!(content.contains("cpm"));
+        assert!(content.contains("310")); // cpm = wpm(62) * 5
     }
 
     #[test]
