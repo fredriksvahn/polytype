@@ -52,6 +52,7 @@ pub struct App {
     pub word_pool: Vec<String>,
     pub keymap: Keymap,
     pub overlay: Option<MenuState>,
+    pub pending_edit_config: bool,
 }
 
 impl App {
@@ -62,14 +63,7 @@ impl App {
         pool: Vec<String>,
         keymap: Keymap,
     ) -> Self {
-        let layouts: Vec<String> = {
-            let mut v: Vec<String> = registry.keys().cloned().collect();
-            v.sort();
-            v
-        };
-        let mut menu = MenuState::new(layouts, &settings.target_layout);
-        menu.punctuation = settings.punctuation;
-        menu.numbers = settings.numbers;
+        let menu = Self::seed_menu(&settings, &registry);
         App {
             settings,
             registry,
@@ -88,7 +82,48 @@ impl App {
             word_pool: pool,
             keymap,
             overlay: None,
+            pending_edit_config: false,
         }
+    }
+
+    fn seed_menu(settings: &Settings, registry: &HashMap<String, Layout>) -> MenuState {
+        let mut layouts: Vec<String> = registry.keys().cloned().collect();
+        layouts.sort();
+        let mut menu = MenuState::new(layouts, &settings.target_layout);
+        menu.punctuation = settings.punctuation;
+        menu.numbers = settings.numbers;
+        menu
+    }
+
+    /// Rebuild all config-derived state from a `Config`, keeping stats. Lands on Menu.
+    pub fn reload_from(&mut self, config: &crate::config::Config) {
+        use crate::config::Config;
+        let settings = crate::cli::Settings::resolve(&crate::cli::Args::default(), config);
+        let user_layouts = Config::config_dir().map(|d| d.join("layouts"));
+        let registry =
+            crate::layout::builtin::load_registry(user_layouts.as_deref()).unwrap_or_default();
+        let user_wordlists = Config::config_dir().map(|d| d.join("wordlists"));
+        let pool =
+            crate::content::wordlist::load_named(&settings.wordlist, user_wordlists.as_deref());
+        let keymap = crate::keys::Keymap::with_overrides(&config.keys);
+
+        self.menu = Self::seed_menu(&settings, &registry);
+        self.settings = settings;
+        self.registry = registry;
+        self.word_pool = pool;
+        self.keymap = keymap;
+        self.overlay = None;
+        self.runner = None;
+        self.target_text = None;
+        self.active_mode = None;
+        self.current_layout = None;
+        self.screen = Screen::Menu;
+    }
+
+    /// Reload config from disk and rebuild state.
+    pub fn reload_config(&mut self) {
+        let config = crate::config::Config::load().unwrap_or_default();
+        self.reload_from(&config);
     }
 
     pub fn target_layout(&self) -> Option<&Layout> {
@@ -256,6 +291,21 @@ mod tests {
         a.open_panel();
         a.cancel_panel();
         assert!(a.overlay.is_none());
+    }
+
+    #[test]
+    fn reload_from_applies_config_and_keeps_stats() {
+        let mut a = app();
+        a.stats.keys.insert('e', (5, 1)); // a stat to preserve
+        let cfg = crate::config::Config {
+            target_layout: "dvorak".into(),
+            ..Default::default()
+        };
+        a.reload_from(&cfg);
+        assert_eq!(a.settings.target_layout, "dvorak");
+        assert_eq!(a.menu.layouts[a.menu.layout_idx], "dvorak");
+        assert_eq!(a.stats.keys[&'e'], (5, 1)); // stats kept
+        assert_eq!(a.screen, Screen::Menu);
     }
 
     #[test]
