@@ -31,6 +31,7 @@ pub fn render(f: &mut Frame, area: Rect, menu: &MenuState) {
             Field::QuoteLength,
             format!("Length: {}", menu.quote_length.label()),
         ),
+        (Field::Stats, "Stats".to_string()),
         (Field::EditConfig, "Edit config".to_string()),
         (Field::Start, "[ Start ]".to_string()),
     ];
@@ -65,7 +66,7 @@ mod tests {
     #[test]
     fn renders_menu_rows() {
         let menu = MenuState::new(vec!["colemak-dhm".into()], "colemak-dhm");
-        let mut term = Terminal::new(TestBackend::new(40, 10)).unwrap();
+        let mut term = Terminal::new(TestBackend::new(40, 14)).unwrap();
         term.draw(|f| render(f, f.area(), &menu)).unwrap();
         let content: String = term
             .backend()

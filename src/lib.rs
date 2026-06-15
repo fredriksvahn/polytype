@@ -5,6 +5,7 @@ pub mod content;
 pub mod editor;
 pub mod engine;
 pub mod error;
+pub mod history;
 pub mod keys;
 pub mod layout;
 pub mod stats;

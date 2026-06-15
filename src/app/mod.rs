@@ -12,12 +12,22 @@ pub enum Mode {
     Quote(crate::content::quotes::QuoteLength),
 }
 
+fn mode_label(mode: &Mode) -> &'static str {
+    match mode {
+        Mode::Words(_) => "words",
+        Mode::Timed(_) => "timed",
+        Mode::Lesson(_) => "lesson",
+        Mode::Quote(_) => "quote",
+    }
+}
+
 /// Which screen is currently shown.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Screen {
     Menu,
     Test,
     Results,
+    Stats,
 }
 
 use crate::app::menu::{MenuState, StartRequest};
@@ -194,11 +204,21 @@ impl App {
     /// Finish the current test: record stats and show results.
     pub fn finish(&mut self) {
         if let Some(runner) = &self.runner {
-            self.last_score = Some(runner.score());
+            let score = runner.score();
+            self.last_score = Some(score);
             let mut sess = KeyStats::default();
             sess.merge(runner.per_key());
             self.stats.merge(runner.per_key());
             self.session_stats = sess;
+
+            let mode = self.active_mode.as_ref().map(mode_label).unwrap_or("words");
+            crate::history::append(&crate::history::Session {
+                ts: crate::history::now_unix(),
+                wpm: score.wpm,
+                accuracy: score.accuracy,
+                mode: mode.to_string(),
+                layout: self.current_layout.clone().unwrap_or_default(),
+            });
         }
         self.screen = Screen::Results;
     }

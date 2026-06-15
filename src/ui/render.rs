@@ -36,6 +36,14 @@ pub fn render(f: &mut Frame, app: &App) {
                 results::render(f, area, score, &app.session_stats);
             }
         }
+        Screen::Stats => {
+            let layout = app
+                .target_layout()
+                .or_else(|| app.registry.get(&app.settings.target_layout));
+            if let Some(layout) = layout {
+                crate::ui::stats_view::render(f, area, layout, &app.stats);
+            }
+        }
     }
 
     // Quick-panel overlay on top of the test.

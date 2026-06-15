@@ -11,6 +11,7 @@ pub enum Field {
     Punctuation,
     Numbers,
     QuoteLength,
+    Stats,
     EditConfig,
     Start,
 }
@@ -72,6 +73,7 @@ impl MenuState {
                 Field::Punctuation,
                 Field::Numbers,
                 Field::QuoteLength,
+                Field::Stats,
                 Field::EditConfig,
                 Field::Start,
             ],
@@ -137,6 +139,7 @@ impl MenuState {
                     (QuoteLength::Long, false) => QuoteLength::Medium,
                 };
             }
+            Field::Stats => {}
             Field::EditConfig => {}
             Field::Start => {}
         }
