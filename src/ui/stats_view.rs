@@ -4,12 +4,14 @@ use crate::history;
 use crate::layout::Layout;
 use crate::stats::KeyStats;
 use crate::ui::keyboard::per_finger_accuracy;
+use crate::ui::theme::Theme;
 use ratatui::layout::{Alignment, Constraint, Direction, Layout as LLayout, Rect};
+use ratatui::style::Style;
 use ratatui::text::Line;
 use ratatui::widgets::Paragraph;
 use ratatui::Frame;
 
-pub fn render(f: &mut Frame, area: Rect, layout: &Layout, stats: &KeyStats) {
+pub fn render(f: &mut Frame, area: Rect, layout: &Layout, stats: &KeyStats, theme: &Theme) {
     let sessions = history::load();
     let weak = per_finger_accuracy(layout, stats);
     let weak_str = if weak.is_empty() {
@@ -35,14 +37,14 @@ pub fn render(f: &mut Frame, area: Rect, layout: &Layout, stats: &KeyStats) {
     let spark = history::sparkline(&history::recent_wpm(&sessions, 30));
 
     let lines = vec![
-        Line::from("stats"),
+        Line::from("stats").style(Style::new().fg(theme.accent)),
         Line::from(""),
-        Line::from(summary),
-        Line::from(format!("wpm  {spark}")),
+        Line::from(summary).style(Style::new().fg(theme.fg)),
+        Line::from(format!("wpm  {spark}")).style(Style::new().fg(theme.fg)),
         Line::from(""),
-        Line::from(format!("weak fingers:  {weak_str}")),
+        Line::from(format!("weak fingers:  {weak_str}")).style(Style::new().fg(theme.dim)),
         Line::from(""),
-        Line::from("any key = back"),
+        Line::from("any key = back").style(Style::new().fg(theme.dim)),
     ];
     let content_h = lines.len() as u16;
     let outer = LLayout::default()
@@ -68,8 +70,10 @@ mod tests {
         let layout = load_registry(None).unwrap()["colemak-dhm"].clone();
         let mut stats = KeyStats::default();
         stats.keys.insert('a', (6, 4));
+        let theme = Theme::default();
         let mut term = Terminal::new(TestBackend::new(50, 16)).unwrap();
-        term.draw(|f| render(f, f.area(), &layout, &stats)).unwrap();
+        term.draw(|f| render(f, f.area(), &layout, &stats, &theme))
+            .unwrap();
         let content: String = term
             .backend()
             .buffer()

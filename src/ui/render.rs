@@ -1,7 +1,7 @@
 //! Top-level render dispatch by screen.
 
 use crate::app::{App, Screen};
-use crate::ui::{menu_view, results, test_view::TestView, theme};
+use crate::ui::{menu_view, results, test_view::TestView};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::Style;
 use ratatui::widgets::{Block, Clear};
@@ -10,9 +10,9 @@ use ratatui::Frame;
 pub fn render(f: &mut Frame, app: &App) {
     let area = f.area();
     // Solid background so the terminal's own backdrop doesn't show through.
-    f.render_widget(Block::default().style(Style::new().bg(theme::BG)), area);
+    f.render_widget(Block::default().style(Style::new().bg(app.theme.bg)), area);
     match app.screen {
-        Screen::Menu => menu_view::render(f, area, &app.menu),
+        Screen::Menu => menu_view::render(f, area, &app.menu, &app.theme),
         Screen::Test => {
             if let (Some(runner), Some(text), Some(layout)) = (
                 app.runner.as_ref(),
@@ -27,13 +27,14 @@ pub fn render(f: &mut Frame, app: &App) {
                     show_keyboard: app.settings.show_keyboard,
                     show_heatmap: app.settings.show_heatmap,
                     split_keyboard: app.settings.split_keyboard,
+                    theme: &app.theme,
                 }
                 .render(f, area);
             }
         }
         Screen::Results => {
             if let Some(score) = &app.last_score {
-                results::render(f, area, score, &app.session_stats);
+                results::render(f, area, score, &app.session_stats, &app.theme);
             }
         }
         Screen::Stats => {
@@ -41,7 +42,7 @@ pub fn render(f: &mut Frame, app: &App) {
                 .target_layout()
                 .or_else(|| app.registry.get(&app.settings.target_layout));
             if let Some(layout) = layout {
-                crate::ui::stats_view::render(f, area, layout, &app.stats);
+                crate::ui::stats_view::render(f, area, layout, &app.stats, &app.theme);
             }
         }
     }
@@ -50,8 +51,8 @@ pub fn render(f: &mut Frame, app: &App) {
     if let Some(overlay) = &app.overlay {
         let panel = centered_rect(60, 60, area);
         f.render_widget(Clear, panel);
-        f.render_widget(Block::default().style(Style::new().bg(theme::BG)), panel);
-        menu_view::render(f, panel, overlay);
+        f.render_widget(Block::default().style(Style::new().bg(app.theme.bg)), panel);
+        menu_view::render(f, panel, overlay, &app.theme);
     }
 }
 

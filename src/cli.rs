@@ -51,6 +51,9 @@ pub struct Args {
     /// Render the on-screen keyboard with the halves spaced apart (split board).
     #[arg(long)]
     pub split: bool,
+    /// Color theme to use (e.g. catppuccin-mocha, dracula, gruvbox-dark).
+    #[arg(long)]
+    pub theme: Option<String>,
 }
 
 /// Which mode to launch directly (None => show the menu).
@@ -75,6 +78,7 @@ pub struct Settings {
     pub punctuation: bool,
     pub numbers: bool,
     pub split_keyboard: bool,
+    pub theme: String,
     pub launch: LaunchMode,
 }
 
@@ -118,6 +122,7 @@ impl Settings {
             punctuation: args.punctuation || config.punctuation,
             numbers: args.numbers || config.numbers,
             split_keyboard: args.split || config.split_keyboard,
+            theme: args.theme.clone().unwrap_or_else(|| config.theme.clone()),
             launch,
         }
     }
@@ -210,6 +215,23 @@ mod tests {
         assert_eq!(
             Settings::resolve(&Args::default(), &Config::default()).wordlist,
             "english"
+        );
+    }
+
+    #[test]
+    fn theme_from_flag_or_config() {
+        let args = Args {
+            theme: Some("dracula".into()),
+            ..Args::default()
+        };
+        assert_eq!(
+            Settings::resolve(&args, &Config::default()).theme,
+            "dracula"
+        );
+        // default comes from config
+        assert_eq!(
+            Settings::resolve(&Args::default(), &Config::default()).theme,
+            "default"
         );
     }
 
