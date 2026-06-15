@@ -24,14 +24,40 @@ pub struct TestView<'a> {
 
 impl TestView<'_> {
     pub fn render(&self, f: &mut Frame, area: Rect) {
-        let chunks = LLayout::default()
+        // Vertically center the whole block (status + gap + text + gap + keyboard).
+        let content_h: u16 = if self.show_keyboard { 9 } else { 5 };
+        let outer = LLayout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(1), // status
-                Constraint::Length(3), // text window
-                Constraint::Length(5), // keyboard
+                Constraint::Fill(1),
+                Constraint::Length(content_h),
+                Constraint::Fill(1),
             ])
             .split(area);
+        let inner = outer[1];
+        let rows = if self.show_keyboard {
+            LLayout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Length(1), // status
+                    Constraint::Length(1), // gap
+                    Constraint::Length(3), // text window
+                    Constraint::Length(1), // gap
+                    Constraint::Length(3), // keyboard
+                ])
+                .split(inner)
+        } else {
+            LLayout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Length(1),
+                    Constraint::Length(1),
+                    Constraint::Length(3),
+                ])
+                .split(inner)
+        };
+        let status_area = rows[0];
+        let text_area = rows[2];
 
         // Status line
         let score = self.runner.score();
@@ -43,17 +69,16 @@ impl TestView<'_> {
         );
         f.render_widget(
             Paragraph::new(Line::from(status).style(Style::new().fg(theme::STATUS))),
-            chunks[0],
+            status_area,
         );
 
-        // Target text colored by per-position outcome, wrapped into lines, then
-        // scrolled so the cursor's line stays visible (middle of a 3-line window).
+        // Target text colored by per-position outcome, wrapped + 3-line window.
         let cursor = self.runner.cursor();
         let cells = self.runner.cells();
         let chars: Vec<char> = self.target_text.chars().collect();
         let word_err = word_has_error(&chars, cells);
 
-        let width = chunks[1].width.max(1) as usize;
+        let width = text_area.width.max(1) as usize;
         let line_idx = wrap_line_index(&chars, width);
         let total_lines = line_idx.last().map(|l| l + 1).unwrap_or(1);
         let cursor_line = if chars.is_empty() {
@@ -65,14 +90,10 @@ impl TestView<'_> {
 
         let mut line_spans: Vec<Vec<Span>> = vec![Vec::new(); total_lines];
         for (i, &c) in chars.iter().enumerate() {
-            let mut style = if i == cursor {
-                Style::new().fg(theme::CURSOR_FG).bg(theme::CURSOR_BG)
-            } else {
-                match cells.get(i) {
-                    Some(Cell::Correct) => Style::new().fg(theme::CORRECT),
-                    Some(Cell::Wrong) => Style::new().fg(theme::WRONG),
-                    _ => Style::new().fg(theme::TODO),
-                }
+            let mut style = match cells.get(i) {
+                Some(Cell::Correct) => Style::new().fg(theme::CORRECT),
+                Some(Cell::Wrong) => Style::new().fg(theme::WRONG),
+                _ => Style::new().fg(theme::TODO),
             };
             if word_err.get(i).copied().unwrap_or(false) {
                 style = style.add_modifier(Modifier::UNDERLINED);
@@ -86,14 +107,25 @@ impl TestView<'_> {
             .take(WINDOW_HEIGHT)
             .map(Line::from)
             .collect();
-        f.render_widget(Paragraph::new(visible), chunks[1]);
+        f.render_widget(Paragraph::new(visible), text_area);
+
+        // Real terminal cursor at the current position (tt-style caret).
+        if !chars.is_empty() && cursor < chars.len() {
+            let visible_row = cursor_line as i32 - start as i32;
+            if (0..WINDOW_HEIGHT as i32).contains(&visible_row) {
+                let col = (0..cursor).filter(|&i| line_idx[i] == cursor_line).count() as u16;
+                let cx = (text_area.x + col).min(text_area.x + text_area.width.saturating_sub(1));
+                let cy = text_area.y + visible_row as u16;
+                f.set_cursor_position((cx, cy));
+            }
+        }
 
         // Keyboard
         if self.show_keyboard {
             let next = self.target_text.chars().nth(cursor);
             let hl = highlight_pos(self.target_layout, next);
             let kb = self.keyboard_lines(hl);
-            f.render_widget(Paragraph::new(kb), chunks[2]);
+            f.render_widget(Paragraph::new(kb), rows[4]);
         }
     }
 
@@ -250,9 +282,18 @@ mod tests {
         })
         .unwrap();
 
-        // Find the cell for 'a' (index 0) in the text row (row 1).
         let buf = term.backend().buffer();
-        let cell = buf.cell((0, 1)).expect("cell at (0,1)");
+        let mut wrong = None;
+        for y in 0..buf.area.height {
+            for x in 0..buf.area.width {
+                if let Some(cell) = buf.cell((x, y)) {
+                    if cell.fg == theme::WRONG {
+                        wrong = Some(cell.clone());
+                    }
+                }
+            }
+        }
+        let cell = wrong.expect("a wrong-colored cell exists");
         assert_eq!(cell.fg, theme::WRONG, "wrong char rendered red");
         assert!(
             cell.modifier.contains(ratatui::style::Modifier::UNDERLINED),
