@@ -44,6 +44,10 @@ pub struct Args {
     /// Quote length filter: all, short, medium, long.
     #[arg(long)]
     pub quote_length: Option<String>,
+    /// Wordlist/language to use (e.g. english, swedish, or a name in your
+    /// wordlists dir).
+    #[arg(long)]
+    pub wordlist: Option<String>,
 }
 
 /// Which mode to launch directly (None => show the menu).
@@ -96,7 +100,10 @@ impl Settings {
                 .source
                 .clone()
                 .unwrap_or_else(|| config.source_layout.clone()),
-            wordlist: config.wordlist.clone(),
+            wordlist: args
+                .wordlist
+                .clone()
+                .unwrap_or_else(|| config.wordlist.clone()),
             show_keyboard: if args.no_keyboard {
                 false
             } else {
@@ -182,6 +189,23 @@ mod tests {
         };
         let s = Settings::resolve(&args, &Config::default());
         assert_eq!(s.launch, LaunchMode::Lesson(3));
+    }
+
+    #[test]
+    fn wordlist_from_flag_or_config() {
+        let args = Args {
+            wordlist: Some("swedish".into()),
+            ..Args::default()
+        };
+        assert_eq!(
+            Settings::resolve(&args, &Config::default()).wordlist,
+            "swedish"
+        );
+        // default comes from config (english)
+        assert_eq!(
+            Settings::resolve(&Args::default(), &Config::default()).wordlist,
+            "english"
+        );
     }
 
     #[test]
