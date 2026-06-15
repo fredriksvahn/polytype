@@ -41,6 +41,11 @@ Only punctuation that exists on the chosen layout's key grid is used (so it
 stays typeable through the remap); numbers pass through unchanged. Lessons are
 never decorated.
 
+Define your own lessons in `~/.config/polytype/lessons/<name>.toml` — set `name`
+and either `keys = "etao"` (drill those letters) or `text = "..."` (type a fixed
+passage). They appear after the built-in progression; pick them by raising the
+Lesson number in the menu (the lesson name is shown).
+
 Quote mode types whole sentences from a bundled list (add your own in
 `~/.config/polytype/quotes/*.txt`, one per line). Capitals are kept and typed
 with Shift; punctuation not on your layout's grid is stripped. Filter length
