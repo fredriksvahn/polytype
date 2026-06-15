@@ -10,7 +10,7 @@ use crate::ui::{heat, theme};
 use ratatui::layout::{Constraint, Direction, Layout as LLayout, Rect};
 use ratatui::style::{Modifier, Style, Stylize};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Paragraph, Wrap};
+use ratatui::widgets::Paragraph;
 use ratatui::Frame;
 
 pub struct TestView<'a> {
@@ -28,7 +28,7 @@ impl TestView<'_> {
             .direction(Direction::Vertical)
             .constraints([
                 Constraint::Length(1), // status
-                Constraint::Min(3),    // text
+                Constraint::Length(3), // text window
                 Constraint::Length(5), // keyboard
             ])
             .split(area);
@@ -46,35 +46,47 @@ impl TestView<'_> {
             chunks[0],
         );
 
-        // Target text colored by per-position outcome.
+        // Target text colored by per-position outcome, wrapped into lines, then
+        // scrolled so the cursor's line stays visible (middle of a 3-line window).
         let cursor = self.runner.cursor();
         let cells = self.runner.cells();
         let chars: Vec<char> = self.target_text.chars().collect();
         let word_err = word_has_error(&chars, cells);
 
-        let spans: Vec<Span> = chars
-            .iter()
-            .enumerate()
-            .map(|(i, &c)| {
-                let mut style = if i == cursor {
-                    Style::new().fg(theme::CURSOR_FG).bg(theme::CURSOR_BG)
-                } else {
-                    match cells.get(i) {
-                        Some(Cell::Correct) => Style::new().fg(theme::CORRECT),
-                        Some(Cell::Wrong) => Style::new().fg(theme::WRONG),
-                        _ => Style::new().fg(theme::TODO),
-                    }
-                };
-                if word_err.get(i).copied().unwrap_or(false) {
-                    style = style.add_modifier(Modifier::UNDERLINED);
+        let width = chunks[1].width.max(1) as usize;
+        let line_idx = wrap_line_index(&chars, width);
+        let total_lines = line_idx.last().map(|l| l + 1).unwrap_or(1);
+        let cursor_line = if chars.is_empty() {
+            0
+        } else {
+            line_idx[cursor.min(chars.len() - 1)]
+        };
+        let start = window_start(cursor_line, total_lines, WINDOW_HEIGHT);
+
+        let mut line_spans: Vec<Vec<Span>> = vec![Vec::new(); total_lines];
+        for (i, &c) in chars.iter().enumerate() {
+            let mut style = if i == cursor {
+                Style::new().fg(theme::CURSOR_FG).bg(theme::CURSOR_BG)
+            } else {
+                match cells.get(i) {
+                    Some(Cell::Correct) => Style::new().fg(theme::CORRECT),
+                    Some(Cell::Wrong) => Style::new().fg(theme::WRONG),
+                    _ => Style::new().fg(theme::TODO),
                 }
-                Span::styled(c.to_string(), style)
-            })
+            };
+            if word_err.get(i).copied().unwrap_or(false) {
+                style = style.add_modifier(Modifier::UNDERLINED);
+            }
+            line_spans[line_idx[i]].push(Span::styled(c.to_string(), style));
+        }
+
+        let visible: Vec<Line> = line_spans
+            .into_iter()
+            .skip(start)
+            .take(WINDOW_HEIGHT)
+            .map(Line::from)
             .collect();
-        f.render_widget(
-            Paragraph::new(Line::from(spans)).wrap(Wrap { trim: false }),
-            chunks[1],
-        );
+        f.render_widget(Paragraph::new(visible), chunks[1]);
 
         // Keyboard
         if self.show_keyboard {
@@ -137,12 +149,12 @@ fn wrap_line_index(chars: &[char], width: usize) -> Vec<usize> {
                 line += 1;
                 col = 0;
             }
-            for k in i..j {
+            for idx_k in idx.iter_mut().take(j).skip(i) {
                 if col >= width {
                     line += 1;
                     col = 0;
                 }
-                idx[k] = line;
+                *idx_k = line;
                 col += 1;
             }
             i = j;
@@ -276,6 +288,44 @@ mod tests {
             buffer_text(&term).contains("delta"),
             "later word wrapped into view"
         );
+    }
+
+    #[test]
+    fn cursor_stays_visible_when_scrolled() {
+        let reg = load_registry(None).unwrap();
+        let target = reg["qwerty"].clone();
+        let remapper = Remapper::new(reg["qwerty"].clone(), target.clone());
+        let text = "alpha bravo charlie delta echo foxtrot golf hotel india";
+        let mut runner = SessionRunner::new(text, remapper, Mode::Words(9));
+        // Advance the cursor far into the text (free mode advances on any key).
+        for _ in 0..40 {
+            runner.type_char('x');
+        }
+        let stats = KeyStats::default();
+
+        let mut term = Terminal::new(TestBackend::new(10, 8)).unwrap();
+        term.draw(|f| {
+            TestView {
+                runner: &runner,
+                target_text: text,
+                target_layout: &target,
+                stats: &stats,
+                show_keyboard: false,
+                show_heatmap: false,
+            }
+            .render(f, f.area());
+        })
+        .unwrap();
+
+        let content: String = term
+            .backend()
+            .buffer()
+            .content()
+            .iter()
+            .map(|c| c.symbol())
+            .collect();
+        assert!(!content.contains("alpha"), "early word scrolled off");
+        assert!(content.contains("india"), "cursor's region is visible");
     }
 
     #[test]
