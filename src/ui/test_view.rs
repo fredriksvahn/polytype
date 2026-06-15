@@ -117,7 +117,10 @@ impl TestView<'_> {
             let next = self.target_text.chars().nth(cursor);
             let hl = highlight_pos(self.target_layout, next);
             let kb = self.keyboard_lines(hl);
-            f.render_widget(Paragraph::new(kb), rows[4]);
+            f.render_widget(
+                Paragraph::new(kb).alignment(ratatui::layout::Alignment::Center),
+                rows[4],
+            );
         }
     }
 
