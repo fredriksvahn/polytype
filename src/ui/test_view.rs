@@ -61,7 +61,8 @@ impl TestView<'_> {
             self.target_layout.name
         );
         f.render_widget(
-            Paragraph::new(Line::from(status).style(Style::new().fg(theme::STATUS))),
+            Paragraph::new(Line::from(status).style(Style::new().fg(theme::STATUS)))
+                .alignment(ratatui::layout::Alignment::Center),
             status_area,
         );
 
