@@ -1,14 +1,14 @@
 //! Renders the menu screen.
 
 use crate::app::menu::{Field, MenuState, ModeKind};
-use crate::ui::theme;
+use crate::ui::theme::Theme;
 use ratatui::layout::Rect;
 use ratatui::style::{Style, Stylize};
 use ratatui::text::Line;
 use ratatui::widgets::Paragraph;
 use ratatui::Frame;
 
-pub fn render(f: &mut Frame, area: Rect, menu: &MenuState) {
+pub fn render(f: &mut Frame, area: Rect, menu: &MenuState, theme: &Theme) {
     let mode = match menu.mode_kind {
         ModeKind::Words => format!("Words ({})", menu.words),
         ModeKind::Timed => format!("Timed ({}s)", menu.time),
@@ -36,7 +36,7 @@ pub fn render(f: &mut Frame, area: Rect, menu: &MenuState) {
         (Field::Start, "[ Start ]".to_string()),
     ];
     let mut lines: Vec<Line> = Vec::with_capacity(rows.len() + 2);
-    lines.push(Line::from("polytype").style(Style::new().fg(theme::STATUS)));
+    lines.push(Line::from("polytype").style(Style::new().fg(theme.accent)));
     lines.push(Line::from(""));
     for (field, text) in rows.iter() {
         let mut line = Line::from(text.clone());
@@ -66,8 +66,9 @@ mod tests {
     #[test]
     fn renders_menu_rows() {
         let menu = MenuState::new(vec!["colemak-dhm".into()], "colemak-dhm");
+        let theme = Theme::default();
         let mut term = Terminal::new(TestBackend::new(40, 14)).unwrap();
-        term.draw(|f| render(f, f.area(), &menu)).unwrap();
+        term.draw(|f| render(f, f.area(), &menu, &theme)).unwrap();
         let content: String = term
             .backend()
             .buffer()

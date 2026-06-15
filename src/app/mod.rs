@@ -63,6 +63,7 @@ pub struct App {
     pub keymap: Keymap,
     pub overlay: Option<MenuState>,
     pub pending_edit_config: bool,
+    pub theme: crate::ui::theme::Theme,
 }
 
 impl App {
@@ -74,6 +75,7 @@ impl App {
         keymap: Keymap,
     ) -> Self {
         let menu = Self::seed_menu(&settings, &registry);
+        let theme = Self::load_theme(&settings);
         App {
             settings,
             registry,
@@ -93,7 +95,18 @@ impl App {
             keymap,
             overlay: None,
             pending_edit_config: false,
+            theme,
         }
+    }
+
+    /// Resolve the configured theme, honoring user overrides in the themes dir.
+    fn load_theme(settings: &Settings) -> crate::ui::theme::Theme {
+        crate::ui::theme::load(
+            &settings.theme,
+            crate::config::Config::config_dir()
+                .map(|d| d.join("themes"))
+                .as_deref(),
+        )
     }
 
     fn seed_menu(settings: &Settings, registry: &HashMap<String, Layout>) -> MenuState {
@@ -117,6 +130,7 @@ impl App {
             crate::content::wordlist::load_named(&settings.wordlist, user_wordlists.as_deref());
         let keymap = crate::keys::Keymap::with_overrides(&config.keys);
 
+        self.theme = Self::load_theme(&settings);
         self.menu = Self::seed_menu(&settings, &registry);
         self.settings = settings;
         self.registry = registry;

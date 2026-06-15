@@ -5,8 +5,9 @@ use crate::app::runner::SessionRunner;
 use crate::engine::Cell;
 use crate::layout::Layout;
 use crate::stats::KeyStats;
+use crate::ui::heat;
 use crate::ui::keyboard::{hand_of, highlight_pos};
-use crate::ui::{heat, theme};
+use crate::ui::theme::Theme;
 use ratatui::layout::{Constraint, Direction, Layout as LLayout, Rect};
 use ratatui::style::{Modifier, Style, Stylize};
 use ratatui::text::{Line, Span};
@@ -21,6 +22,7 @@ pub struct TestView<'a> {
     pub show_keyboard: bool,
     pub show_heatmap: bool,
     pub split_keyboard: bool,
+    pub theme: &'a Theme,
 }
 
 impl TestView<'_> {
@@ -61,7 +63,7 @@ impl TestView<'_> {
             self.target_layout.name
         );
         f.render_widget(
-            Paragraph::new(Line::from(status).style(Style::new().fg(theme::STATUS)))
+            Paragraph::new(Line::from(status).style(Style::new().fg(self.theme.accent)))
                 .alignment(ratatui::layout::Alignment::Center),
             status_area,
         );
@@ -85,9 +87,9 @@ impl TestView<'_> {
         let mut line_spans: Vec<Vec<Span>> = vec![Vec::new(); total_lines];
         for (i, &c) in chars.iter().enumerate() {
             let mut style = match cells.get(i) {
-                Some(Cell::Correct) => Style::new().fg(theme::CORRECT),
-                Some(Cell::Wrong) => Style::new().fg(theme::WRONG),
-                _ => Style::new().fg(theme::TODO),
+                Some(Cell::Correct) => Style::new().fg(self.theme.fg),
+                Some(Cell::Wrong) => Style::new().fg(self.theme.error),
+                _ => Style::new().fg(self.theme.dim),
             };
             if word_err.get(i).copied().unwrap_or(false) {
                 style = style.add_modifier(Modifier::UNDERLINED);
@@ -138,12 +140,15 @@ impl TestView<'_> {
                 let pos = row * 10 + col;
                 let ch = self.target_layout.char_at(pos).unwrap_or(' ');
                 let mut style = if self.show_heatmap {
-                    Style::new().fg(theme::heat_color(heat::heat_for(self.stats, ch)))
+                    Style::new().fg(self.theme.heat_color(heat::heat_for(self.stats, ch)))
                 } else {
-                    Style::new().fg(theme::hand_color(hand_of(pos)))
+                    Style::new().fg(self.theme.hand_color(hand_of(pos)))
                 };
                 if Some(pos) == highlight {
-                    style = style.bg(theme::CURSOR_BG).fg(theme::CURSOR_FG).bold();
+                    style = style
+                        .bg(self.theme.cursor_bg)
+                        .fg(self.theme.cursor_fg)
+                        .bold();
                 }
                 spans.push(Span::styled(format!(" {ch}"), style));
             }
@@ -240,6 +245,7 @@ mod tests {
         let remapper = Remapper::new(reg["qwerty"].clone(), target.clone());
         let runner = SessionRunner::new("the", remapper, Mode::Words(1));
         let stats = KeyStats::default();
+        let theme = Theme::default();
 
         let mut term = Terminal::new(TestBackend::new(60, 12)).unwrap();
         term.draw(|f| {
@@ -251,6 +257,7 @@ mod tests {
                 show_keyboard: true,
                 show_heatmap: false,
                 split_keyboard: false,
+                theme: &theme,
             }
             .render(f, f.area());
         })
@@ -269,6 +276,7 @@ mod tests {
         let mut runner = SessionRunner::new("ab cd", remapper, Mode::Words(2));
         runner.type_char('x'); // wrong for 'a' (free mode advances)
         let stats = KeyStats::default();
+        let theme = Theme::default();
 
         let mut term = Terminal::new(TestBackend::new(40, 8)).unwrap();
         term.draw(|f| {
@@ -280,6 +288,7 @@ mod tests {
                 show_keyboard: false,
                 show_heatmap: false,
                 split_keyboard: false,
+                theme: &theme,
             }
             .render(f, f.area());
         })
@@ -290,14 +299,14 @@ mod tests {
         for y in 0..buf.area.height {
             for x in 0..buf.area.width {
                 if let Some(cell) = buf.cell((x, y)) {
-                    if cell.fg == theme::WRONG {
+                    if cell.fg == theme.error {
                         wrong = Some(cell.clone());
                     }
                 }
             }
         }
         let cell = wrong.expect("a wrong-colored cell exists");
-        assert_eq!(cell.fg, theme::WRONG, "wrong char rendered red");
+        assert_eq!(cell.fg, theme.error, "wrong char rendered red");
         assert!(
             cell.modifier.contains(ratatui::style::Modifier::UNDERLINED),
             "errored word underlined"
@@ -312,6 +321,7 @@ mod tests {
         let text = "alpha bravo charlie delta"; // wider than a 12-col window
         let runner = SessionRunner::new(text, remapper, Mode::Words(4));
         let stats = KeyStats::default();
+        let theme = Theme::default();
 
         let mut term = Terminal::new(TestBackend::new(12, 8)).unwrap();
         term.draw(|f| {
@@ -323,6 +333,7 @@ mod tests {
                 show_keyboard: false,
                 show_heatmap: false,
                 split_keyboard: false,
+                theme: &theme,
             }
             .render(f, f.area());
         })
@@ -342,6 +353,7 @@ mod tests {
         let remapper = Remapper::new(reg["qwerty"].clone(), target.clone());
         let runner = SessionRunner::new("x", remapper, Mode::Words(1));
         let stats = KeyStats::default();
+        let theme = Theme::default();
         let view = |split| TestView {
             runner: &runner,
             target_text: "x",
@@ -350,6 +362,7 @@ mod tests {
             show_keyboard: true,
             show_heatmap: false,
             split_keyboard: split,
+            theme: &theme,
         };
         let normal = view(false).keyboard_lines(None);
         let split = view(true).keyboard_lines(None);
@@ -371,6 +384,7 @@ mod tests {
             runner.type_char('x');
         }
         let stats = KeyStats::default();
+        let theme = Theme::default();
 
         let mut term = Terminal::new(TestBackend::new(10, 8)).unwrap();
         term.draw(|f| {
@@ -382,6 +396,7 @@ mod tests {
                 show_keyboard: false,
                 show_heatmap: false,
                 split_keyboard: false,
+                theme: &theme,
             }
             .render(f, f.area());
         })

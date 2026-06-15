@@ -2,12 +2,14 @@
 
 use crate::engine::Score;
 use crate::stats::KeyStats;
+use crate::ui::theme::Theme;
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
+use ratatui::style::Style;
 use ratatui::text::Line;
 use ratatui::widgets::Paragraph;
 use ratatui::Frame;
 
-pub fn render(f: &mut Frame, area: Rect, score: &Score, session_keys: &KeyStats) {
+pub fn render(f: &mut Frame, area: Rect, score: &Score, session_keys: &KeyStats, theme: &Theme) {
     let cpm = (score.wpm * 5.0).round() as u64;
     let weak = weakest_keys(session_keys, 5);
     let weak_str = if weak.is_empty() {
@@ -19,13 +21,13 @@ pub fn render(f: &mut Frame, area: Rect, score: &Score, session_keys: &KeyStats)
             .join("  ")
     };
     let lines = vec![
-        Line::from(format!("cpm {cpm}")),
-        Line::from(format!("wpm {:.0}", score.wpm)),
-        Line::from(format!("acc {:.0}%", score.accuracy * 100.0)),
+        Line::from(format!("cpm {cpm}")).style(Style::new().fg(theme.accent)),
+        Line::from(format!("wpm {:.0}", score.wpm)).style(Style::new().fg(theme.fg)),
+        Line::from(format!("acc {:.0}%", score.accuracy * 100.0)).style(Style::new().fg(theme.fg)),
         Line::from(""),
-        Line::from(format!("weakest:  {weak_str}")),
+        Line::from(format!("weakest:  {weak_str}")).style(Style::new().fg(theme.dim)),
         Line::from(""),
-        Line::from("tab next   esc menu   ctrl-c quit"),
+        Line::from("tab next   esc menu   ctrl-c quit").style(Style::new().fg(theme.dim)),
     ];
     let content_h = lines.len() as u16;
     let outer = Layout::default()
@@ -76,8 +78,10 @@ mod tests {
             typed: 52,
         };
         let stats = KeyStats::default();
+        let theme = Theme::default();
         let mut term = Terminal::new(TestBackend::new(50, 10)).unwrap();
-        term.draw(|f| render(f, f.area(), &score, &stats)).unwrap();
+        term.draw(|f| render(f, f.area(), &score, &stats, &theme))
+            .unwrap();
         let content: String = term
             .backend()
             .buffer()
