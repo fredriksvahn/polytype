@@ -89,6 +89,20 @@ graphite, and tarmak1–4 (the transitional steps toward Colemak). Add your own 
 dropping a `.toml` in `~/.config/polytype/layouts/` (see `assets/layouts/` for
 the format).
 
+## Themes
+
+Set `theme` in config or `--theme <name>` (e.g. `--theme catppuccin-mocha`,
+`dracula`, `gruvbox-dark`, `nord`, `rose-pine`, ...). Drop your own in
+`~/.config/polytype/themes/<name>.toml` — list the hex slots you want (`bg`,
+`fg`, `dim`, `error`, `accent`, `cursor_fg`, `cursor_bg`, `left_hand`,
+`right_hand`, `heat_good`, `heat_mid`, `heat_bad`, `heat_unknown`); omitted
+slots inherit the default. Combine with **Edit config** to switch live.
+
+Bundled themes: catppuccin-mocha, catppuccin-macchiato, catppuccin-frappe,
+catppuccin-latte, dracula, gruvbox-dark, gruvbox-light, nord, rose-pine,
+rose-pine-moon, rose-pine-dawn, everforest, solarized-dark, solarized-light,
+onedark, kanagawa.
+
 ## Config
 
 `~/.config/polytype/config.toml` sets defaults (`target_layout`, `source_layout`,
