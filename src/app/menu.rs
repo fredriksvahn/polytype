@@ -11,6 +11,7 @@ pub enum Field {
     Punctuation,
     Numbers,
     QuoteLength,
+    EditConfig,
     Start,
 }
 
@@ -71,6 +72,7 @@ impl MenuState {
                 Field::Punctuation,
                 Field::Numbers,
                 Field::QuoteLength,
+                Field::EditConfig,
                 Field::Start,
             ],
             cursor: 0,
@@ -135,6 +137,7 @@ impl MenuState {
                     (QuoteLength::Long, false) => QuoteLength::Medium,
                 };
             }
+            Field::EditConfig => {}
             Field::Start => {}
         }
     }
@@ -229,6 +232,19 @@ mod tests {
         m.adjust(1); // Words -> Timed (on ModeKind field)
         let req = m.request(); // not on Start, still works
         assert_eq!(req.mode, Mode::Timed(30));
+    }
+
+    #[test]
+    fn edit_config_field_present_and_inert() {
+        let mut m = menu();
+        assert!(m.fields.contains(&Field::EditConfig));
+        m.cursor = m
+            .fields
+            .iter()
+            .position(|f| *f == Field::EditConfig)
+            .unwrap();
+        m.adjust(1); // no-op, must not panic or change anything
+        assert!(m.activate().is_none()); // EditConfig is not Start
     }
 
     #[test]
