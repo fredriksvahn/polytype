@@ -2,6 +2,7 @@ pub mod app;
 pub mod cli;
 pub mod config;
 pub mod content;
+pub mod editor;
 pub mod engine;
 pub mod error;
 pub mod keys;

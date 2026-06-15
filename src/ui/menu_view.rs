@@ -31,6 +31,7 @@ pub fn render(f: &mut Frame, area: Rect, menu: &MenuState) {
             Field::QuoteLength,
             format!("Length: {}", menu.quote_length.label()),
         ),
+        (Field::EditConfig, "Edit config".to_string()),
         (Field::Start, "[ Start ]".to_string()),
     ];
     let mut lines: Vec<Line> = Vec::with_capacity(rows.len() + 2);

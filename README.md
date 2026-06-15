@@ -89,3 +89,7 @@ the format).
 `show_keyboard`, `show_heatmap`, `split_keyboard`, `wordlist`, ...). Custom wordlists go in
 `~/.config/polytype/wordlists/*.txt` (one word per line). Stats persist to
 `~/.local/share/polytype/keystats.toml`.
+
+Pick **Edit config** in the menu (or the Tab quick-panel) to open `config.toml`
+in `$EDITOR` (`$VISUAL`, else `vi`); on exit, polytype reloads the config so
+changes apply immediately.

@@ -1,6 +1,6 @@
 //! Terminal setup/teardown and the crossterm event loop.
 
-use crate::app::menu::StartRequest;
+use crate::app::menu::{Field, StartRequest};
 use crate::app::{App, Screen};
 use crate::keys::Action;
 use crate::ui::render;
@@ -43,6 +43,16 @@ pub fn run(app: &mut App) -> io::Result<()> {
                 }
             }
         }
+
+        if app.pending_edit_config {
+            app.pending_edit_config = false;
+            ratatui::restore();
+            crate::editor::edit_config();
+            terminal = ratatui::init();
+            let _ = terminal.clear();
+            app.reload_config();
+            started = Instant::now();
+        }
     }
 
     ratatui::restore();
@@ -64,7 +74,9 @@ fn handle_menu_key(
     } else if app.keymap.matches(Action::NavNext, &key) {
         app.menu.adjust(1);
     } else if app.keymap.matches(Action::Confirm, &key) {
-        if let Some(req) = app.menu.activate() {
+        if app.menu.focused() == Field::EditConfig {
+            app.pending_edit_config = true;
+        } else if let Some(req) = app.menu.activate() {
             app.start(req, rng);
             *started = Instant::now();
         }
@@ -166,8 +178,13 @@ fn handle_overlay_key(
             m.adjust(1);
         }
     } else if app.keymap.matches(Action::Confirm, &key) {
-        app.confirm_panel(rng);
-        *started = Instant::now();
+        if app.overlay.as_ref().map(|m| m.focused()) == Some(Field::EditConfig) {
+            app.pending_edit_config = true;
+            app.cancel_panel();
+        } else {
+            app.confirm_panel(rng);
+            *started = Instant::now();
+        }
     } else if app.keymap.matches(Action::PanelCancel, &key) {
         // Resume: shift the clock so elapsed continues from where it froze.
         let elapsed = app.runner.as_ref().map(|r| r.elapsed()).unwrap_or(0.0);
