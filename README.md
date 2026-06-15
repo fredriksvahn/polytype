@@ -19,6 +19,7 @@ by default. Train with free word/timed tests or a graded lesson progression.
     polytype --words 30 --numbers         # sprinkle numbers into the words
     polytype --quotes                     # type a random quote/sentence
     polytype --quotes --quote-length long # only long quotes
+    polytype --wordlist swedish --words 20 # train on the Swedish word list
     cat text.txt | polytype --words 50    # use your own words
 
 `--no-keyboard` hides the on-screen keyboard; `--heatmap` colors keys by your
@@ -39,6 +40,12 @@ Quote mode types whole sentences from a bundled list (add your own in
 with Shift; punctuation not on your layout's grid is stripped. Filter length
 with `--quote-length all|short|medium|long` or in the menu. Quotes are not
 decorated with punctuation or numbers.
+
+Choose a wordlist with `--wordlist english|swedish` or set `wordlist` in config.
+Drop your own lists in `~/.config/polytype/wordlists/<name>.txt` (one word per
+line) and select by `<name>`. Swedish keeps å/ä/ö — those pass through the remap,
+so they're typeable if your OS layout can produce them. Piping via stdin
+overrides the wordlist.
 
 In strict mode the cursor won't advance until you type the correct letter.
 Mistyped letters show red; words with an error are underlined; backspace corrects.
