@@ -22,6 +22,10 @@ const BUILTINS: &[(&str, &str)] = &[
         "graphite",
         include_str!("../../assets/layouts/graphite.toml"),
     ),
+    ("tarmak1", include_str!("../../assets/layouts/tarmak1.toml")),
+    ("tarmak2", include_str!("../../assets/layouts/tarmak2.toml")),
+    ("tarmak3", include_str!("../../assets/layouts/tarmak3.toml")),
+    ("tarmak4", include_str!("../../assets/layouts/tarmak4.toml")),
 ];
 
 /// All built-in layouts keyed by name.
@@ -62,7 +66,7 @@ mod tests {
     #[test]
     fn all_builtins_parse_and_have_full_grid() {
         let reg = builtin_registry().unwrap();
-        assert_eq!(reg.len(), 7);
+        assert_eq!(reg.len(), 11);
         for (name, layout) in &reg {
             assert_eq!(layout.keys.len(), GRID_LEN, "layout {name} wrong length");
         }
@@ -87,6 +91,19 @@ mod tests {
         assert_eq!(dhm.char_at(22), Some('d'));
         assert_eq!(dhm.char_at(23), Some('v'));
         assert_eq!(dhm.char_at(24), Some('z'));
+    }
+
+    #[test]
+    fn tarmak_steps_present_and_step1_brings_n_and_e_home() {
+        let reg = builtin_registry().unwrap();
+        for step in ["tarmak1", "tarmak2", "tarmak3", "tarmak4"] {
+            assert!(reg.contains_key(step), "{step} missing");
+        }
+        // Tarmak1 4-cycle: QWERTY j-pos -> n, k-pos -> e (n and e brought home).
+        let t1 = &reg["tarmak1"];
+        assert_eq!(t1.char_at(16), Some('n')); // QWERTY 'j' position
+        assert_eq!(t1.char_at(17), Some('e')); // QWERTY 'k' position
+        assert_eq!(t1.char_at(2), Some('j')); // QWERTY 'e' position parks 'j'
     }
 
     #[test]
